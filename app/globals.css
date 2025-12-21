@@ -1,26 +1,105 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* --- Base Colors (Fondo y Texto Principal) --- */
+  /* Un gris muy oscuro (Zinc-950), mejor que negro puro */
+  --background: #09090b; 
+  /* Blanco roto para evitar el deslumbramiento */
+  --foreground: #fafafa; 
+
+  /* --- Surface/Cards (Los widgets del dashboard) --- */
+  /* Un tono ligeramente más claro para separar los bloques del fondo */
+  --card: #18181b; 
+  --card-foreground: #ffffff;
+  
+  /* --- Borders (Líneas sutiles) --- */
+  --border: #27272a;
+  --input: #27272a;
+  
+  /* --- Primary Brand (Color de acento, botones, links) --- */
+  /* Un índigo vibrante que inspira confianza tecnológica */
+  --primary: #6366f1; 
+  --primary-foreground: #ffffff;
+
+  /* --- Financial Semantic Colors (CRUCIAL para tu app) --- */
+  /* Verde esmeralda: Positivo pero legible sobre fondo oscuro */
+  --profit: #10b981; 
+  /* Rojo suave: Negativo, alerta pero sin ser chillón */
+  --loss: #ef4444; 
+  /* Oro/Amarillo: Para advertencias o datos neutrales (Hold) */
+  --warning: #f59e0b;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-profit: var(--profit);
+  --color-loss: var(--loss);
+  --color-warning: var(--warning);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* -------------------------------------------------------------------------- */
+/* CUSTOM SCROLLBAR (Para Chrome, Edge, Safari)                               */
+/* -------------------------------------------------------------------------- */
+::-webkit-scrollbar {
+  width: 10px;               /* Ancho vertical */
+  height: 10px;              /* Alto horizontal */
+}
+
+/* El fondo por donde corre la barra */
+::-webkit-scrollbar-track {
+  background: var(--background); 
+}
+
+/* La barra en sí (el "dedo") */
+::-webkit-scrollbar-thumb {
+  background-color: #3f3f46; /* Gris medio (Zinc-700) */
+  border-radius: 5px;        /* Bordes redondeados */
+  border: 2px solid var(--background); /* Margen interno para efecto flotante */
+}
+
+/* Efecto al pasar el ratón por encima de la barra */
+::-webkit-scrollbar-thumb:hover {
+  background-color: #52525b; /* Un poco más claro (Zinc-600) */
+}
+
+/* -------------------------------------------------------------------------- */
+/* Utlidades extra para tus datos financieros                                 */
+/* -------------------------------------------------------------------------- */
+@layer utilities {
+  .text-profit {
+    color: var(--profit);
+  }
+  
+  .text-loss {
+    color: var(--loss);
+  }
+  
+  /* Fondo suave para badges de ganancia (ej: +5%) */
+  .bg-profit-soft {
+    background-color: rgba(16, 185, 129, 0.15);
+    color: var(--profit);
+  }
+
+  /* Fondo suave para badges de pérdida (ej: -2%) */
+  .bg-loss-soft {
+    background-color: rgba(239, 68, 68, 0.15);
+    color: var(--loss);
+  }
 }
