@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 
 const AuthContext = createContext();
 
@@ -13,6 +14,8 @@ export function useAuth() {
 }
 
 export function AuthProvider({ children }) {
+  const router = useRouter();
+  const pathname = usePathname();
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -67,6 +70,8 @@ export function AuthProvider({ children }) {
     setUser(null);
     setToken(null);
     localStorage.removeItem('auth_token');
+    // Redirigir al home sin abrir el modal
+    router.push('/');
   };
 
   const openAuthModal = () => {

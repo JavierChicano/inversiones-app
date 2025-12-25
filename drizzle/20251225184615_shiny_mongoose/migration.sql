@@ -1,0 +1,1 @@
+ALTER TABLE `assets` DROP COLUMN `logo_url`;

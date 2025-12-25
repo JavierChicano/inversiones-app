@@ -1,0 +1,31 @@
+name: Actualizar Precios de Assets y Snapshots
+
+on:
+  schedule:
+    # Cada 20 minutos
+    - cron: '*/20 * * * *'
+  # Permite ejecución manual desde GitHub Actions
+  workflow_dispatch:
+
+jobs:
+  refresh-assets:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Llamar al endpoint de Vercel para actualizar assets
+        run: |
+          curl -X POST ${{ secrets.VERCEL_URL }}/api/assets/refresh-all \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -d '{}' \
+            --fail \
+            --show-error \
+            --silent
+        
+      - name: Verificar resultado
+        if: success()
+        run: echo "✅ Assets actualizados y snapshots guardados correctamente"
+        
+      - name: Notificar error
+        if: failure()
+        run: echo "❌ Error al actualizar assets"

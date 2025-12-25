@@ -1,13 +1,11 @@
 @import "tailwindcss";
 
 :root {
-  /* --- Base Colors (Fondo y Texto Principal) --- */
   /* Un gris muy oscuro (Zinc-950), mejor que negro puro */
   --background: #09090b; 
   /* Blanco roto para evitar el deslumbramiento */
   --foreground: #fafafa; 
 
-  /* --- Surface/Cards (Los widgets del dashboard) --- */
   /* Un tono ligeramente más claro para separar los bloques del fondo */
   --card: #18181b; 
   --card-foreground: #ffffff;
@@ -16,12 +14,10 @@
   --border: #27272a;
   --input: #27272a;
   
-  /* --- Primary Brand (Color de acento, botones, links) --- */
   /* Un índigo vibrante que inspira confianza tecnológica */
   --primary: #6366f1; 
   --primary-foreground: #ffffff;
 
-  /* --- Financial Semantic Colors (CRUCIAL para tu app) --- */
   /* Verde esmeralda: Positivo pero legible sobre fondo oscuro */
   --profit: #10b981; 
   /* Rojo suave: Negativo, alerta pero sin ser chillón */
@@ -54,9 +50,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* -------------------------------------------------------------------------- */
 /* CUSTOM SCROLLBAR (Para Chrome, Edge, Safari)                               */
-/* -------------------------------------------------------------------------- */
 ::-webkit-scrollbar {
   width: 10px;               /* Ancho vertical */
   height: 10px;              /* Alto horizontal */
@@ -79,9 +73,7 @@ body {
   background-color: #52525b; /* Un poco más claro (Zinc-600) */
 }
 
-/* -------------------------------------------------------------------------- */
 /* Utlidades extra para tus datos financieros                                 */
-/* -------------------------------------------------------------------------- */
 @layer utilities {
   .text-profit {
     color: var(--profit);
@@ -102,4 +94,8 @@ body {
     background-color: rgba(239, 68, 68, 0.15);
     color: var(--loss);
   }
+}
+
+button {
+  cursor: pointer;
 }
