@@ -14,13 +14,12 @@ jobs:
     steps:
       - name: Llamar al endpoint de Vercel para actualizar assets
         run: |
-          curl -X POST ${{ secrets.VERCEL_URL }}/api/assets/refresh-all \
+          curl -L -X POST ${{ secrets.VERCEL_URL }}/api/assets/refresh-all \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json" \
             -d '{}' \
             --fail \
-            --show-error \
-            --silent
+            --show-error
         
       - name: Verificar resultado
         if: success()
