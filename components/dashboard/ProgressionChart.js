@@ -120,7 +120,13 @@ export default function ProgressionChart({ data }) {
         itemGap: 20,
         icon: 'roundRect',
         borderRadius: 4,
+        // Forzar colores específicos para cada item
+        itemStyle: {
+          borderWidth: 0,
+        },
       },
+      // Definir paleta de colores global
+      color: ['#3b82f6', '#a1a1aa', '#22c55e'],
       grid: {
         left: '3%',
         right: '4%',
