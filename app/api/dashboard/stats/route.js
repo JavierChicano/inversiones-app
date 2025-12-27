@@ -141,7 +141,7 @@ export async function GET(request) {
       date: new Date(snap.date).toISOString(),
       value: snap.totalValue,
       invested: snap.totalInvested,
-      netGain: snap.totalValue - sreverse().nap.totalInvested,
+      netGain: snap.totalValue - snap.totalInvested,
     }));
 
     // Si no hay snapshots, generar uno con los datos actuales

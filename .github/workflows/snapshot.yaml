@@ -1,0 +1,18 @@
+name: Generar Snapshot Diario de Cartera
+
+on:
+  schedule:
+    # Cada hora
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+jobs:
+  daily-snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Llamar endpoint de Snapshot y Sanitización
+        run: |
+          curl -L --fail -X POST ${{ secrets.VERCEL_URL }}/api/cronjobs/snapshot \
+          -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+          -H "Content-Type: application/json" \
+          -d '{}'
