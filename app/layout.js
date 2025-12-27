@@ -4,6 +4,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { CacheProvider } from "@/context/CacheContext";
 import AuthModal from "@/components/AuthModal";
 import Navbar from '@/components/Navbar';
+import { Analytics } from "@vercel/analytics/react"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,6 +29,7 @@ export default function RootLayout({ children }) {
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         suppressHydrationWarning
       >
+        <Analytics/>
         <AuthProvider>
           <CacheProvider>
             <Navbar />
