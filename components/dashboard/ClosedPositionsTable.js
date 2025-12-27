@@ -1,5 +1,7 @@
 'use client';
 
+import { formatHoldingTime } from '@/lib/utils/formatters';
+
 export default function ClosedPositionsTable({ data }) {
   if (!data || data.length === 0) {
     return (
@@ -47,6 +49,7 @@ export default function ClosedPositionsTable({ data }) {
               <th className="text-right py-3 px-4 text-zinc-400 font-medium text-sm">Ganancia Total</th>
               <th className="text-right py-3 px-4 text-zinc-400 font-medium text-sm">Ganancia Media</th>
               <th className="text-right py-3 px-4 text-zinc-400 font-medium text-sm">ROI</th>
+              <th className="text-right py-3 px-4 text-zinc-400 font-medium text-sm">Tiempo Posesión</th>
               <th className="text-right py-3 px-4 text-zinc-400 font-medium text-sm">Win Rate</th>
               <th className="text-right py-3 px-4 text-zinc-400 font-medium text-sm">W/L</th>
             </tr>
@@ -91,6 +94,9 @@ export default function ClosedPositionsTable({ data }) {
                   }`}>
                     {formatPercent(position.roi)}
                   </span>
+                </td>
+                <td className="py-4 px-4 text-right text-zinc-300">
+                  {formatHoldingTime(position.avgHoldingDays || 0)}
                 </td>
                 <td className="py-4 px-4 text-right">
                   <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-sm font-semibold ${

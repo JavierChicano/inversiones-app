@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { formatHoldingTimeLong } from '@/lib/utils/formatters';
 import StatsCard from '@/components/dashboard/StatsCard';
 import RealizedGainsChart from '@/components/dashboard/RealizedGainsChart';
 import ClosedPositionsTable from '@/components/dashboard/ClosedPositionsTable';
-import { TrendingUpIcon, PercentIcon, BarChartIcon, CashIcon } from '@/components/icons';
+import { TrendingUpIcon, PercentIcon, BarChartIcon, CashIcon, ClockIcon } from '@/components/icons';
 
 export default function AnalyticsPage() {
   const { token } = useAuth();
@@ -103,7 +104,7 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Métricas principales */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <StatsCard
           title="Ganancia Total Realizada"
           value={
@@ -150,6 +151,18 @@ export default function AnalyticsPage() {
           subValue={`${metrics.winningTrades} ganadoras / ${metrics.losingTrades} perdedoras`}
           color={metrics.winRate >= 50 ? 'green' : 'orange'}
           icon={<PercentIcon className="w-6 h-6" />}
+        />
+
+        <StatsCard
+          title="Tiempo Posesión Medio"
+          value={
+            <span className="text-cyan-500">
+              {formatHoldingTimeLong(metrics.avgHoldingDays)}
+            </span>
+          }
+          subValue="De activos vendidos"
+          color="cyan"
+          icon={<ClockIcon className="w-6 h-6" />}
         />
       </div>
 

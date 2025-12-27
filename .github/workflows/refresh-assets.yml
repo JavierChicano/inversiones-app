@@ -23,7 +23,7 @@ jobs:
         
       - name: Verificar resultado
         if: success()
-        run: echo "✅ Assets actualizados y snapshots guardados correctamente"
+        run: echo "✅ Assets actualizados correctamente"
         
       - name: Notificar error
         if: failure()

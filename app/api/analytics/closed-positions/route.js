@@ -30,6 +30,8 @@ export async function GET(request) {
     const tickerData = {};
     const progressionData = [];
     let cumulativeGain = 0;
+    let totalHoldingDays = 0; // Para calcular tiempo promedio de posesión
+    let totalSoldQuantity = 0; // Para ponderar el tiempo de posesión
 
     transactions.forEach((tx) => {
       const ticker = tx.assetTicker;
@@ -46,6 +48,8 @@ export async function GET(request) {
           losingTrades: 0,
           totalInvested: 0,
           totalRevenue: 0,
+          totalHoldingDays: 0, // Suma ponderada de días de posesión
+          totalSoldQuantity: 0, // Cantidad total vendida para ponderar
         };
       }
 
@@ -63,6 +67,7 @@ export async function GET(request) {
         let remainingToSell = tx.quantity;
         let totalCost = 0;
         const sellRevenue = tx.quantity * tx.pricePerUnit - tx.fees;
+        const sellDate = new Date(tx.date);
 
         // Procesar FIFO
         while (remainingToSell > 0 && tickerData[ticker].buyQueue.length > 0) {
@@ -72,6 +77,16 @@ export async function GET(request) {
           // Calcular costo de esta porción
           const portionCost = quantityToUse * buy.pricePerUnit + (buy.fees * quantityToUse / buy.quantity);
           totalCost += portionCost;
+
+          // Calcular tiempo de posesión de esta porción vendida
+          const buyDate = new Date(buy.date);
+          const holdingDays = Math.floor((sellDate - buyDate) / (1000 * 60 * 60 * 24));
+          totalHoldingDays += holdingDays * quantityToUse; // Ponderar por cantidad vendida
+          totalSoldQuantity += quantityToUse;
+          
+          // Agregar tiempo de posesión al ticker específico
+          tickerData[ticker].totalHoldingDays += holdingDays * quantityToUse;
+          tickerData[ticker].totalSoldQuantity += quantityToUse;
 
           // Actualizar cola
           buy.quantity -= quantityToUse;
@@ -123,6 +138,7 @@ export async function GET(request) {
         roi: t.totalInvested > 0 ? (t.totalGainLoss / t.totalInvested) * 100 : 0,
         totalInvested: t.totalInvested,
         totalRevenue: t.totalRevenue,
+        avgHoldingDays: t.totalSoldQuantity > 0 ? Math.floor(t.totalHoldingDays / t.totalSoldQuantity) : 0,
       }))
       .sort((a, b) => b.totalGainLoss - a.totalGainLoss);
 
@@ -132,6 +148,7 @@ export async function GET(request) {
     const totalInvested = closedPositions.reduce((sum, p) => sum + p.totalInvested, 0);
     const totalWinning = closedPositions.reduce((sum, p) => sum + p.winningTrades, 0);
     const totalLosing = closedPositions.reduce((sum, p) => sum + p.losingTrades, 0);
+    const avgHoldingDays = totalSoldQuantity > 0 ? Math.floor(totalHoldingDays / totalSoldQuantity) : 0;
 
     const globalMetrics = {
       totalTrades,
@@ -143,6 +160,7 @@ export async function GET(request) {
       winningTrades: totalWinning,
       losingTrades: totalLosing,
       totalTickers: closedPositions.length,
+      avgHoldingDays: avgHoldingDays,
     };
 
     // Tipo de cambio EUR/USD

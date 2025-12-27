@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db/index';
 import { assets, transactions, users } from '@/lib/db/schema';
-import { eq, inArray, notInArray } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { createSnapshot } from '@/lib/repository/portfolio.repository';
 
 export async function POST(req) {

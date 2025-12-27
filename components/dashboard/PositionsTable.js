@@ -1,5 +1,7 @@
 'use client';
 
+import { formatHoldingTime } from '@/lib/utils/formatters';
+
 export default function PositionsTable({ data }) {
   if (!data || data.length === 0) {
     return (
@@ -56,10 +58,11 @@ export default function PositionsTable({ data }) {
           <thead>
             <tr className="border-b border-zinc-800">
               <th className="text-left py-3 px-4 text-zinc-400 font-medium text-sm">Ticker</th>
-              <th className="text-left py-3 px-4 text-zinc-400 font-medium text-sm">Tipo</th>
-              <th className="text-right py-3 px-4 text-zinc-400 font-medium text-sm">Cantidad</th>
-              <th className="text-right py-3 px-4 text-zinc-400 font-medium text-sm">Precio Medio</th>
-              <th className="text-right py-3 px-4 text-zinc-400 font-medium text-sm">Precio Actual</th>
+              <th className="text-center py-3 px-4 text-zinc-400 font-medium text-sm">Tipo</th>
+              <th className="text-center py-3 px-4 text-zinc-400 font-medium text-sm">Tiempo Posesión</th>
+              <th className="text-center py-3 px-4 text-zinc-400 font-medium text-sm">Cantidad</th>
+              <th className="text-center py-3 px-4 text-zinc-400 font-medium text-sm">Precio Medio</th>
+              <th className="text-center py-3 px-4 text-zinc-400 font-medium text-sm">Precio Actual</th>
               <th className="text-right py-3 px-4 text-zinc-400 font-medium text-sm">Valor Actual</th>
               <th className="text-right py-3 px-4 text-zinc-400 font-medium text-sm">Ganancia/Pérdida</th>
               <th className="text-right py-3 px-4 text-zinc-400 font-medium text-sm">%</th>
@@ -77,19 +80,22 @@ export default function PositionsTable({ data }) {
                     <span className="text-white font-semibold">{position.ticker}</span>
                   </div>
                 </td>
-                <td className="py-4 px-4 text-left text-zinc-400 text-sm">
+                <td className="py-4 px-4 text-center text-zinc-400 text-sm">
                   {getAssetTypeLabel(position.type)}
                 </td>
-                <td className="py-4 px-4 text-right text-zinc-300">
+                <td className="py-4 px-4 text-center text-zinc-300">
+                  {formatHoldingTime(position.avgHoldingDays || 0)}
+                </td>
+                <td className="py-4 px-4 text-center text-zinc-300">
                   {position.quantity.toLocaleString('es-ES', {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 8,
                   })}
                 </td>
-                <td className="py-4 px-4 text-right text-zinc-300">
+                <td className="py-4 px-4 text-center text-zinc-300">
                   {formatCurrency(position.avgBuyPrice)}
                 </td>
-                <td className="py-4 px-4 text-right text-zinc-300">
+                <td className="py-4 px-4 text-center text-zinc-300">
                   {formatCurrency(position.currentPrice)}
                 </td>
                 <td className="py-4 px-4 text-right text-white font-semibold">
@@ -115,7 +121,7 @@ export default function PositionsTable({ data }) {
           <tfoot>
             <tr className="border-t-2 border-zinc-700 text-lg">
               <td className="py-4 px-4 text-white font-bold">Total</td>
-              <td colSpan="4"></td>
+              <td colSpan="5"></td>
               <td className="py-4 px-4 text-right text-white font-bold">
                 {formatCurrency(sortedData.reduce((sum, p) => sum + p.currentValue, 0))}
               </td>

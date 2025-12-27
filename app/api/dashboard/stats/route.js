@@ -50,6 +50,7 @@ export async function GET(request) {
           quantity: 0,
           totalCost: 0,
           avgBuyPrice: 0,
+          firstBuyDate: null, // Para calcular tiempo de posesión medio
         };
       }
 
@@ -57,6 +58,11 @@ export async function GET(request) {
         // Actualizar precio promedio antes de añadir nuevas acciones
         if (portfolio[ticker].quantity > 0) {
           portfolio[ticker].avgBuyPrice = portfolio[ticker].totalCost / portfolio[ticker].quantity;
+        }
+        
+        // Registrar fecha de primera compra
+        if (!portfolio[ticker].firstBuyDate || new Date(tx.date) < new Date(portfolio[ticker].firstBuyDate)) {
+          portfolio[ticker].firstBuyDate = tx.date;
         }
         
         portfolio[ticker].quantity += tx.quantity;
@@ -97,6 +103,11 @@ export async function GET(request) {
         totalCurrentValue += currentValue;
         currentInvested += position.totalCost; // Sumar el costo de posiciones abiertas
 
+        // Calcular días de posesión
+        const holdingDays = position.firstBuyDate 
+          ? Math.floor((new Date() - new Date(position.firstBuyDate)) / (1000 * 60 * 60 * 24))
+          : 0;
+
         stockDistribution.push({
           ticker: position.ticker,
           type: assetTypeMap[position.ticker] || 'STOCK',
@@ -109,6 +120,7 @@ export async function GET(request) {
           gainLossPercent: position.totalCost > 0 
             ? ((currentValue - position.totalCost) / position.totalCost) * 100 
             : 0,
+          avgHoldingDays: holdingDays,
         });
       }
     });

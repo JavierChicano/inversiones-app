@@ -12,7 +12,17 @@ jobs:
     steps:
       - name: Llamar endpoint de Snapshot y Sanitización
         run: |
-          curl -L --fail -X POST ${{ secrets.VERCEL_URL }}/api/cronjobs/snapshot \
-          -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-          -H "Content-Type: application/json" \
-          -d '{}'
+          curl -L -X POST ${{ secrets.VERCEL_URL }}/api/cronjobs/snapshot \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -d '{}' \
+            --fail \
+            --show-error
+        
+      - name: Verificar resultado
+        if: success()
+        run: echo "✅ Snapshot generado y assets sanitizados correctamente"
+        
+      - name: Notificar error
+        if: failure()
+        run: echo "❌ Error crítico al generar el snapshot diario"
