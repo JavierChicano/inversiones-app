@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import DashboardLayout from '@/components/dashboard/DashboardLayout';
-import WatchlistTable from '@/components/dashboard/WatchlistTable';
-import AddWatchlistModal from '@/components/dashboard/AddWatchlistModal';
-import { PlusIcon, RefreshIcon } from '@/components/icons';
-import { useAuth } from '@/context/AuthContext';
+import { useState, useEffect } from "react";
+import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import WatchlistTable from "@/components/dashboard/WatchlistTable";
+import AddWatchlistModal from "@/components/dashboard/AddWatchlistModal";
+import { PlusIcon, RefreshIcon } from "@/components/icons";
+import { useAuth } from "@/context/AuthContext";
 
 export default function PortfolioPage() {
   const { user } = useAuth();
@@ -18,26 +18,29 @@ export default function PortfolioPage() {
     if (user) {
       fetchWatchlist();
       fetchExistingAssets();
-    } else {
-      setIsLoading(false);
     }
   }, [user]);
 
   const fetchWatchlist = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/watchlist', {
+      const token = localStorage.getItem("auth_token");
+      // Si no hay token, no hacemos la llamada y paramos aquí.
+      if (!token) {
+        console.log("Esperando token...");
+        return;
+      }
+      const response = await fetch("/api/watchlist", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
-      if (!response.ok) throw new Error('Error fetching watchlist');
+      if (!response.ok) throw new Error("Error fetching watchlist");
 
       const data = await response.json();
       setWatchlist(data.watchlist || []);
     } catch (error) {
-      console.error('Error fetching watchlist:', error);
+      console.error("Error fetching watchlist:", error);
     } finally {
       setIsLoading(false);
     }
@@ -45,85 +48,99 @@ export default function PortfolioPage() {
 
   const fetchExistingAssets = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/assets', {
+      const token = localStorage.getItem("auth_token");
+      if (!token) return;
+      const response = await fetch("/api/assets", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
-      if (!response.ok) throw new Error('Error fetching assets');
+      if (!response.ok) throw new Error("Error fetching assets");
 
       const data = await response.json();
       setExistingAssets(data.assets || []);
     } catch (error) {
-      console.error('Error fetching assets:', error);
+      console.error("Error fetching assets:", error);
     }
   };
 
   const handleAddToWatchlist = async (item) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/watchlist', {
-        method: 'POST',
+      const token = localStorage.getItem("auth_token");
+      if (!token) {
+        alert("Tu sesión ha expirado. Por favor, recarga la página.");
+        return;
+      }
+
+      const response = await fetch("/api/watchlist", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(item),
       });
 
-      if (!response.ok) throw new Error('Error adding to watchlist');
+      if (!response.ok) throw new Error("Error adding to watchlist");
 
       await fetchWatchlist();
     } catch (error) {
-      console.error('Error adding to watchlist:', error);
+      console.error("Error adding to watchlist:", error);
     }
   };
 
   const handleDeleteFromWatchlist = async (id) => {
-    if (!confirm('¿Estás seguro de que quieres eliminar este activo de tu watchlist?')) {
+    if (
+      !confirm(
+        "¿Estás seguro de que quieres eliminar este activo de tu watchlist?"
+      )
+    ) {
       return;
     }
 
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem("auth_token");
+      if (!token) return;
+
       const response = await fetch(`/api/watchlist/${id}`, {
-        method: 'DELETE',
+        method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
-      if (!response.ok) throw new Error('Error deleting from watchlist');
+      if (!response.ok) throw new Error("Error deleting from watchlist");
 
       await fetchWatchlist();
     } catch (error) {
-      console.error('Error deleting from watchlist:', error);
+      console.error("Error deleting from watchlist:", error);
     }
   };
 
   const handleEditWatchlist = async (id, updates) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem("auth_token");
+      if (!token) return;
+      
       const response = await fetch(`/api/watchlist/${id}`, {
-        method: 'PATCH',
+        method: "PATCH",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(updates),
       });
 
-      if (!response.ok) throw new Error('Error updating watchlist');
+      if (!response.ok) throw new Error("Error updating watchlist");
 
       await fetchWatchlist();
     } catch (error) {
-      console.error('Error updating watchlist:', error);
+      console.error("Error updating watchlist:", error);
     }
   };
 
-  const targetsReached = watchlist.filter(item => item.targetReached).length;
+  const targetsReached = watchlist.filter((item) => item.targetReached).length;
   const totalTracking = watchlist.length;
 
   return (
@@ -138,13 +155,6 @@ export default function PortfolioPage() {
             </p>
           </div>
           <div className="flex gap-3">
-            <button
-              onClick={() => fetchWatchlist()}
-              className="px-4 py-2 bg-zinc-800 text-white rounded-lg hover:bg-zinc-700 transition-colors flex items-center gap-2"
-            >
-              <RefreshIcon className="w-4 h-4" />
-              Actualizar
-            </button>
             <button
               onClick={() => setIsModalOpen(true)}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
@@ -164,12 +174,17 @@ export default function PortfolioPage() {
             </div>
             <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
               <p className="text-sm text-zinc-400 mb-1">Objetivos Alcanzados</p>
-              <p className="text-2xl font-bold text-green-500">{targetsReached}</p>
+              <p className="text-2xl font-bold text-green-500">
+                {targetsReached}
+              </p>
             </div>
             <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
               <p className="text-sm text-zinc-400 mb-1">Porcentaje Éxito</p>
               <p className="text-2xl font-bold text-blue-500">
-                {totalTracking > 0 ? ((targetsReached / totalTracking) * 100).toFixed(1) : 0}%
+                {totalTracking > 0
+                  ? ((targetsReached / totalTracking) * 100).toFixed(1)
+                  : 0}
+                %
               </p>
             </div>
           </div>

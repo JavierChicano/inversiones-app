@@ -8,11 +8,11 @@ import {
   GridIcon,
   ClipboardListIcon,
   BarChartIcon,
-  BriefcaseIcon,
   SettingsIcon,
   RefreshIcon,
   ChevronRightIcon,
   WalletGrowthIcon,
+  WatchlistIcon,
 } from "../icons";
 
 export default function DashboardNav() {
@@ -73,10 +73,10 @@ export default function DashboardNav() {
       icon: <BarChartIcon className="w-5 h-5" />,
     },
     {
-      id: "portfolio",
-      name: "Portfolio",
-      href: "/dashboard/portfolio",
-      icon: <BriefcaseIcon className="w-5 h-5" />,
+      id: "watchlist",
+      name: "Watchlist",
+      href: "/dashboard/watchlist",
+      icon: <WatchlistIcon className="w-5 h-5" />,
     },
     {
       id: "settings",
