@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db/index';
-import { assets, transactions, users } from '@/lib/db/schema';
+import { assets, transactions, users, watchlist } from '@/lib/db/schema';
 import { eq, inArray } from 'drizzle-orm';
 import { createSnapshot } from '@/lib/repository/portfolio.repository';
 
@@ -19,12 +19,26 @@ export async function POST(req) {
     // 1. SANITIZAR ASSETS - Eliminar assets que ningún usuario tiene
     console.log('--- Sanitizando tabla de assets ---');
     
-    // Obtener todos los tickers únicos que SÍ tienen los usuarios
-    const tickersInUse = await db
+    // Obtener todos los tickers únicos que SÍ tienen los usuarios en transacciones
+    const tickersInTransactions = await db
       .selectDistinct({ ticker: transactions.assetTicker })
       .from(transactions);
 
-    const tickersInUseList = tickersInUse.map(t => t.ticker);
+    const tickersInTransactionsList = tickersInTransactions.map(t => t.ticker);
+    
+    // Obtener todos los tickers únicos que están en watchlist
+    const tickersInWatchlist = await db
+      .selectDistinct({ ticker: watchlist.assetTicker })
+      .from(watchlist);
+
+    const tickersInWatchlistList = tickersInWatchlist.map(t => t.ticker);
+    
+    // Combinar ambas listas (tickers en uso = transacciones + watchlist)
+    const tickersInUseList = [...new Set([...tickersInTransactionsList, ...tickersInWatchlistList])];
+    
+    console.log(`Assets en transacciones: ${tickersInTransactionsList.length}`);
+    console.log(`Assets en watchlist: ${tickersInWatchlistList.length}`);
+    console.log(`Assets totales en uso: ${tickersInUseList.length}`);
     
     // Siempre mantener EURUSD (necesario para conversiones)
     if (!tickersInUseList.includes('EURUSD')) {
@@ -35,16 +49,20 @@ export async function POST(req) {
     const allAssets = await db.select({ ticker: assets.ticker }).from(assets);
     const allTickers = allAssets.map(a => a.ticker);
 
-    // Identificar assets huérfanos (en la tabla pero sin usuarios)
+    // Identificar assets huérfanos (en la tabla pero sin usuarios ni watchlist)
     const orphanedTickers = allTickers.filter(ticker => !tickersInUseList.includes(ticker));
 
     if (orphanedTickers.length > 0) {
-      console.log(`Eliminando ${orphanedTickers.length} assets sin usuarios: [${orphanedTickers.join(', ')}]`);
+      console.log(`🗑️  Eliminando ${orphanedTickers.length} assets huérfanos (sin transacciones ni watchlist):`);
+      console.log(`   Tickers eliminados: [${orphanedTickers.join(', ')}]`);
+      
       await db
         .delete(assets)
         .where(inArray(assets.ticker, orphanedTickers));
+      
+      console.log(`✅ Assets eliminados correctamente`);
     } else {
-      console.log('No hay assets huérfanos para eliminar');
+      console.log('✓ No hay assets huérfanos para eliminar');
     }
 
     // 2. GUARDAR SNAPSHOTS - Para todos los usuarios

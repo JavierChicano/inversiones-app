@@ -1,4 +1,4 @@
-name: Generar Snapshot Diario de Cartera
+name: Generar Snapshot Diario de Cartera y Sanitización de Assets
 
 on:
   schedule:

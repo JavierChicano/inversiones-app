@@ -1,4 +1,4 @@
-name: Actualizar Precios de Assets y Snapshots
+name: Actualizar Precios de Assets
 
 on:
   schedule:
