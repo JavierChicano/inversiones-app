@@ -71,9 +71,9 @@ export async function POST(req) {
     const marketStatus = getMarketStatus();
     console.log(`Estado del mercado: ${marketStatus.message} (${marketStatus.etTime})`);
 
-    // Filtrar assets según si deben actualizarse (considerando horario de mercado)
+    // Filtrar assets según si deben actualizarse (considerando isActive y horario de mercado)
     const assetsToActuallyUpdate = isCronJob 
-      ? assetsToUpdate.filter(asset => shouldUpdateAsset(asset.type))
+      ? assetsToUpdate.filter(asset => asset.isActive !== false && shouldUpdateAsset(asset.type))
       : assetsToUpdate; // Si no es cron job, actualizar todo (petición manual de usuario)
 
     if (assetsToActuallyUpdate.length === 0) {
@@ -86,9 +86,15 @@ export async function POST(req) {
       });
     }
 
-    // Log de assets omitidos por mercado cerrado
+    // Log de assets omitidos por mercado cerrado o desactivados
     if (isCronJob) {
-      const skippedAssets = assetsToUpdate.filter(asset => !shouldUpdateAsset(asset.type));
+      const inactiveAssets = assetsToUpdate.filter(asset => asset.isActive === false);
+      const skippedAssets = assetsToUpdate.filter(asset => asset.isActive !== false && !shouldUpdateAsset(asset.type));
+      
+      if (inactiveAssets.length > 0) {
+        console.log(`Assets inactivos omitidos: ${inactiveAssets.length} - [${inactiveAssets.map(a => a.ticker).join(', ')}]`);
+      }
+      
       if (skippedAssets.length > 0) {
         const skippedStocks = skippedAssets.filter(a => a.type === 'STOCK');
         console.log(`Assets omitidos (mercado cerrado): ${skippedStocks.length} acciones - [${skippedStocks.map(a => a.ticker).join(', ')}]`);

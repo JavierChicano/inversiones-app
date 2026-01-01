@@ -1,0 +1,1 @@
+ALTER TABLE `assets` ADD `is_active` integer DEFAULT 1;

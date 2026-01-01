@@ -16,8 +16,8 @@ export async function POST(req) {
 
     console.log('=== Cron Job: Snapshot y Sanitización ===');
 
-    // 1. SANITIZAR ASSETS - Eliminar assets que nadie posee actualmente
-    console.log('--- Sanitizando tabla de assets ---');
+    // 1. ACTIVAR/DESACTIVAR ASSETS - Marcar como inactivos los que ya no se necesitan
+    console.log('--- Gestionando estado de assets ---');
     
     // A. Obtener todas las transacciones de TODOS los usuarios
     const allTransactions = await db
@@ -51,41 +51,58 @@ export async function POST(req) {
 
     console.log(`Tickers con posiciones abiertas: ${activeHoldingTickers.length}`);
 
-    // D. Obtener tickers en Watchlist (Estos se quedan SIEMPRE, aunque no tengas saldo)
+    // D. Obtener tickers en Watchlist (Estos se quedan SIEMPRE activos, aunque no tengas saldo)
     const tickersInWatchlist = await db
       .selectDistinct({ ticker: watchlist.assetTicker })
       .from(watchlist);
     const watchlistList = tickersInWatchlist.map(t => t.ticker);
 
-    // E. Lista FINAL de intocables (Posiciones abiertas + Watchlist + EURUSD)
+    // E. Lista FINAL de assets que deben estar ACTIVOS (Posiciones abiertas + Watchlist + EURUSD)
     // Usamos Set para eliminar duplicados y .trim() por seguridad
-    const tickersToKeep = new Set([
+    const tickersToKeepActive = new Set([
         ...activeHoldingTickers.map(t => t.trim()),
         ...watchlistList.map(t => t.trim())
     ]);
     
-    // Aseguramos que EURUSD nunca se borre
-    tickersToKeep.add('EURUSD');
+    // Aseguramos que EURUSD siempre esté activo
+    tickersToKeepActive.add('EURUSD');
 
-    // F. Borrar lo que sobra
+    // F. Actualizar estado de assets
     const allAssets = await db.select({ ticker: assets.ticker }).from(assets);
     
-    // Identificar los que NO están en la lista de 'Keep'
-    const tickersToDelete = allAssets
+    // Identificar los que deben desactivarse
+    const tickersToDeactivate = allAssets
         .map(a => a.ticker)
-        .filter(ticker => !tickersToKeep.has(ticker));
+        .filter(ticker => !tickersToKeepActive.has(ticker));
 
-    if (tickersToDelete.length > 0) {
-      console.log(`🗑️ Eliminando ${tickersToDelete.length} assets inactivos:`);
-      console.log(`   Tickers: [${tickersToDelete.join(', ')}]`);
+    // Identificar los que deben activarse (por si estaban desactivados y ahora vuelven a usarse)
+    const tickersToActivate = allAssets
+        .map(a => a.ticker)
+        .filter(ticker => tickersToKeepActive.has(ticker));
+
+    // Desactivar assets no utilizados
+    if (tickersToDeactivate.length > 0) {
+      console.log(`⏸️ Desactivando ${tickersToDeactivate.length} assets sin uso:`);
+      console.log(`   Tickers: [${tickersToDeactivate.join(', ')}]`);
       
       await db
-        .delete(assets)
-        .where(inArray(assets.ticker, tickersToDelete));
+        .update(assets)
+        .set({ isActive: false })
+        .where(inArray(assets.ticker, tickersToDeactivate));
       
-      console.log(`✅ Limpieza completada.`);
+      console.log(`✅ Assets desactivados (no se refrescarán en cron jobs).`);
     } else {
-      console.log('✓ Tabla optimizada: Solo activos necesarios en memoria.');
+      console.log('✓ No hay assets para desactivar.');
+    }
+
+    // Activar assets que vuelven a usarse
+    if (tickersToActivate.length > 0) {
+      await db
+        .update(assets)
+        .set({ isActive: true })
+        .where(inArray(assets.ticker, tickersToActivate));
+      
+      console.log(`✅ ${tickersToActivate.length} assets marcados como activos.`);
     }
 
     // 2. GUARDAR SNAPSHOTS - Para todos los usuarios
@@ -98,8 +115,9 @@ export async function POST(req) {
       console.log('No hay usuarios en el sistema');
       return NextResponse.json({ 
         success: true,
-        message: 'Sanitización completada, no hay usuarios para snapshots',
-        assetsDeleted: tickersToDelete.length,
+        message: 'Gestión de assets completada, no hay usuarios para snapshots',
+        assetsDeactivated: tickersToDeactivate.length,
+        assetsActivated: tickersToActivate.length,
         snapshots: 0
       });
     }
@@ -185,9 +203,10 @@ export async function POST(req) {
 
     return NextResponse.json({ 
       success: true, 
-      message: `Proceso completado: ${tickersToDelete.length} assets eliminados, ${successfulSnapshots.length} snapshots creados`,
-      assetsDeleted: tickersToDelete.length,
-      deletedTickers: tickersToDelete,
+      message: `Proceso completado: ${tickersToDeactivate.length} assets desactivados, ${successfulSnapshots.length} snapshots creados`,
+      assetsDeactivated: tickersToDeactivate.length,
+      deactivatedTickers: tickersToDeactivate,
+      assetsActivated: tickersToActivate.length,
       snapshots: successfulSnapshots.length,
       snapshotDetails: snapshotResults,
     });
