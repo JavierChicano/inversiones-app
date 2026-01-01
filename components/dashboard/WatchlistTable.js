@@ -50,9 +50,9 @@ export default function WatchlistTable({ watchlist, onDelete, onEdit }) {
   };
 
   const formatCurrency = (value) => {
-    return new Intl.NumberFormat('es-ES', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'EUR',
+      currency: 'USD',
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(value);
@@ -70,18 +70,19 @@ export default function WatchlistTable({ watchlist, onDelete, onEdit }) {
 
   return (
     <>
-      <table className="w-full">
-        <thead>
-          <tr className="border-b border-zinc-800">
-            <th className="text-center text-sm font-medium text-zinc-400 pb-3 px-4">Ticker</th>
-            <th className="text-center text-sm font-medium text-zinc-400 pb-3 px-4">Tipo</th>
-            <th className="text-center text-sm font-medium text-zinc-400 pb-3 px-4">Precio Actual</th>
-            <th className="text-center text-sm font-medium text-zinc-400 pb-3 px-4">Precio Objetivo</th>
-            <th className="text-center text-sm font-medium text-zinc-400 pb-3 px-4">% vs Objetivo</th>
-            <th className="text-center text-sm font-medium text-zinc-400 pb-3 px-4">Notas</th>
-            <th className="text-center text-sm font-medium text-zinc-400 pb-3 px-4">Acciones</th>
-          </tr>
-        </thead>
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-zinc-800">
+              <th className="text-center text-sm font-medium text-zinc-400 pb-3 px-4">Ticker</th>
+              <th className="text-center text-sm font-medium text-zinc-400 pb-3 px-4">Tipo</th>
+              <th className="text-center text-sm font-medium text-zinc-400 pb-3 px-4">Precio Actual</th>
+              <th className="text-center text-sm font-medium text-zinc-400 pb-3 px-4">Precio Objetivo</th>
+              <th className="text-center text-sm font-medium text-zinc-400 pb-3 px-4">% vs Objetivo</th>
+              <th className="text-center text-sm font-medium text-zinc-400 pb-3 px-4">Notas</th>
+              <th className="text-center text-sm font-medium text-zinc-400 pb-3 px-4">Acciones</th>
+            </tr>
+          </thead>
         <tbody>
           {watchlist.length === 0 ? (
             <tr>
@@ -177,6 +178,7 @@ export default function WatchlistTable({ watchlist, onDelete, onEdit }) {
           )}
         </tbody>
       </table>
+      </div>
 
       {/* Modal de edición inline */}
       {editingId && (

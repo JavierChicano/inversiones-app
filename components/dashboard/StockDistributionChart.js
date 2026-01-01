@@ -23,6 +23,9 @@ export default function StockDistributionChart({ data, exchangeRate = 1.1 }) {
     // Calcular el total de dinero en USD (los valores ya vienen en USD)
     const totalValueUSD = data.reduce((sum, item) => sum + item.currentValue, 0);
 
+    // Detectar si es mobile
+    const isMobile = window.innerWidth < 1024;
+
     const option = {
       backgroundColor: 'transparent',
       tooltip: {
@@ -41,9 +44,9 @@ export default function StockDistributionChart({ data, exchangeRate = 1.1 }) {
         },
       },
       legend: {
-        orient: 'vertical',
-        right: '10%',
-        top: 'center',
+        orient: isMobile ? 'horizontal' : 'vertical',
+        right: isMobile ? 'center' : '10%',
+        top: isMobile ? '0%' : 'center',
         textStyle: {
           color: '#a1a1aa',
         },
@@ -51,13 +54,14 @@ export default function StockDistributionChart({ data, exchangeRate = 1.1 }) {
       graphic: [
         {
           type: 'text',
-          left: '29%',
-          top: 'center',
+          left: isMobile ? 'center' : '29%',
+          top: isMobile ? '55%' : 'center',
           style: {
             text: `$${totalValueUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-            fontSize: 22,
+            fontSize: isMobile ? 18 : 22,
             fontWeight: 'bold',
             fill: '#ffffff',
+            textAlign: 'center',
           },
         },
       ],
@@ -65,8 +69,8 @@ export default function StockDistributionChart({ data, exchangeRate = 1.1 }) {
         {
           name: 'Stock Distribution',
           type: 'pie',
-          radius: ['55%', '80%'],
-          center: ['35%', '50%'],
+          radius: isMobile ? ['40%', '65%'] : ['55%', '80%'],
+          center: isMobile ? ['50%', '60%'] : ['35%', '50%'],
           avoidLabelOverlap: false,
           itemStyle: {
             borderRadius: 10,

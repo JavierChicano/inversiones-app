@@ -16,53 +16,76 @@ export async function POST(req) {
 
     console.log('=== Cron Job: Snapshot y Sanitización ===');
 
-    // 1. SANITIZAR ASSETS - Eliminar assets que ningún usuario tiene
+    // 1. SANITIZAR ASSETS - Eliminar assets que nadie posee actualmente
     console.log('--- Sanitizando tabla de assets ---');
     
-    // Obtener todos los tickers únicos que SÍ tienen los usuarios en transacciones
-    const tickersInTransactions = await db
-      .selectDistinct({ ticker: transactions.assetTicker })
+    // A. Obtener todas las transacciones de TODOS los usuarios
+    const allTransactions = await db
+      .select({ 
+        ticker: transactions.assetTicker, 
+        type: transactions.type, 
+        quantity: transactions.quantity 
+      })
       .from(transactions);
 
-    const tickersInTransactionsList = tickersInTransactions.map(t => t.ticker);
-    
-    // Obtener todos los tickers únicos que están en watchlist
+    // B. Calcular Holdings (Cantidad neta) por Ticker
+    const holdingsMap = new Map();
+
+    for (const tx of allTransactions) {
+        const current = holdingsMap.get(tx.ticker) || 0;
+        // Sumamos si es compra, restamos si es venta
+        if (tx.type === 'BUY') {
+            holdingsMap.set(tx.ticker, current + tx.quantity);
+        } else if (tx.type === 'SELL') {
+            holdingsMap.set(tx.ticker, current - tx.quantity);
+        }
+    }
+
+    // C. Filtrar tickers que tienen saldo positivo (> 0.000001 para evitar errores de float)
+    const activeHoldingTickers = [];
+    holdingsMap.forEach((qty, ticker) => {
+        if (qty > 0.000001) {
+            activeHoldingTickers.push(ticker);
+        }
+    });
+
+    console.log(`Tickers con posiciones abiertas: ${activeHoldingTickers.length}`);
+
+    // D. Obtener tickers en Watchlist (Estos se quedan SIEMPRE, aunque no tengas saldo)
     const tickersInWatchlist = await db
       .selectDistinct({ ticker: watchlist.assetTicker })
       .from(watchlist);
+    const watchlistList = tickersInWatchlist.map(t => t.ticker);
 
-    const tickersInWatchlistList = tickersInWatchlist.map(t => t.ticker);
+    // E. Lista FINAL de intocables (Posiciones abiertas + Watchlist + EURUSD)
+    // Usamos Set para eliminar duplicados y .trim() por seguridad
+    const tickersToKeep = new Set([
+        ...activeHoldingTickers.map(t => t.trim()),
+        ...watchlistList.map(t => t.trim())
+    ]);
     
-    // Combinar ambas listas (tickers en uso = transacciones + watchlist)
-    const tickersInUseList = [...new Set([...tickersInTransactionsList, ...tickersInWatchlistList])];
-    
-    console.log(`Assets en transacciones: ${tickersInTransactionsList.length}`);
-    console.log(`Assets en watchlist: ${tickersInWatchlistList.length}`);
-    console.log(`Assets totales en uso: ${tickersInUseList.length}`);
-    
-    // Siempre mantener EURUSD (necesario para conversiones)
-    if (!tickersInUseList.includes('EURUSD')) {
-      tickersInUseList.push('EURUSD');
-    }
+    // Aseguramos que EURUSD nunca se borre
+    tickersToKeep.add('EURUSD');
 
-    // Obtener todos los assets de la tabla
+    // F. Borrar lo que sobra
     const allAssets = await db.select({ ticker: assets.ticker }).from(assets);
-    const allTickers = allAssets.map(a => a.ticker);
+    
+    // Identificar los que NO están en la lista de 'Keep'
+    const tickersToDelete = allAssets
+        .map(a => a.ticker)
+        .filter(ticker => !tickersToKeep.has(ticker));
 
-    // Identificar assets huérfanos (en la tabla pero sin usuarios ni watchlist)
-    const orphanedTickers = allTickers.filter(ticker => !tickersInUseList.includes(ticker));
-
-    if (orphanedTickers.length > 0) {
-      console.log(`🗑️  Eliminando ${orphanedTickers.length} assets huérfanos (sin transacciones ni watchlist):`);
-      console.log(`   Tickers eliminados: [${orphanedTickers.join(', ')}]`);
+    if (tickersToDelete.length > 0) {
+      console.log(`🗑️ Eliminando ${tickersToDelete.length} assets inactivos:`);
+      console.log(`   Tickers: [${tickersToDelete.join(', ')}]`);
       
       await db
         .delete(assets)
-        .where(inArray(assets.ticker, orphanedTickers));
+        .where(inArray(assets.ticker, tickersToDelete));
       
-      console.log(`✅ Assets eliminados correctamente`);
+      console.log(`✅ Limpieza completada.`);
     } else {
-      console.log('✓ No hay assets huérfanos para eliminar');
+      console.log('✓ Tabla optimizada: Solo activos necesarios en memoria.');
     }
 
     // 2. GUARDAR SNAPSHOTS - Para todos los usuarios
@@ -76,7 +99,7 @@ export async function POST(req) {
       return NextResponse.json({ 
         success: true,
         message: 'Sanitización completada, no hay usuarios para snapshots',
-        assetsDeleted: orphanedTickers.length,
+        assetsDeleted: tickersToDelete.length,
         snapshots: 0
       });
     }
@@ -162,9 +185,9 @@ export async function POST(req) {
 
     return NextResponse.json({ 
       success: true, 
-      message: `Proceso completado: ${orphanedTickers.length} assets eliminados, ${successfulSnapshots.length} snapshots creados`,
-      assetsDeleted: orphanedTickers.length,
-      deletedTickers: orphanedTickers,
+      message: `Proceso completado: ${tickersToDelete.length} assets eliminados, ${successfulSnapshots.length} snapshots creados`,
+      assetsDeleted: tickersToDelete.length,
+      deletedTickers: tickersToDelete,
       snapshots: successfulSnapshots.length,
       snapshotDetails: snapshotResults,
     });

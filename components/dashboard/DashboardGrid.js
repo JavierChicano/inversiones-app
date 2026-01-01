@@ -37,12 +37,12 @@ export default function DashboardGrid({ data }) {
   };
 
   // Calcular la ganancia/pérdida absoluta basada en el ROI
-  const roiAmount = (data.stats.portfolioTotal.eur - data.stats.invested.eur);
-  
+  const roiAmount = data.stats.portfolioTotal.eur - data.stats.invested.eur;
+
   return (
     <div className="space-y-6">
       {/* Grid principal con 6 columnas */}
-      <div className="grid grid-cols-2 lg:grid-cols-6 gap-4 auto-rows-fr">
+      <div className="grid grid-cols-2 lg:grid-cols-6 gap-x-4 gap-y-4 lg:gap-y-4 lg:auto-rows-fr">
         {/* Primera fila: Portfolio (2 cols), Invertido (1 col), Stock Chart (3 cols x 2 rows) */}
         <div className="lg:col-span-2">
           <StatsCard
@@ -54,19 +54,19 @@ export default function DashboardGrid({ data }) {
             large
           />
         </div>
-
-        <StatsCard
-          title="Invertido"
-          value={formatCurrency(data.stats.invested.eur)}
-          subValue={formatCurrency(data.stats.invested.usd, "USD")}
-          color="blue"
-          icon={<CashIcon className="w-6 h-6" />}
-        />
-
+        <div>
+          <StatsCard
+            title="Invertido"
+            value={formatCurrency(data.stats.invested.eur)}
+            subValue={formatCurrency(data.stats.invested.usd, "USD")}
+            color="blue"
+            icon={<CashIcon className="w-6 h-6" />}
+          />
+        </div>
         {/* Stock Distribution Chart - ocupa 3 columnas y 2 filas */}
         <div className="col-span-2 lg:col-span-3 lg:row-span-2">
-          <StockDistributionChart 
-            data={data.stockDistribution} 
+          <StockDistributionChart
+            data={data.stockDistribution}
             exchangeRate={data.exchangeRate.eurUsd}
           />
         </div>
@@ -75,7 +75,11 @@ export default function DashboardGrid({ data }) {
         <StatsCard
           title="Neto Total"
           value={
-            <span className={data.stats.netTotal.eur >= 0 ? "text-green-500" : "text-red-500"}>
+            <span
+              className={
+                data.stats.netTotal.eur >= 0 ? "text-green-500" : "text-red-500"
+              }
+            >
               {formatCurrency(data.stats.netTotal.eur)}
             </span>
           }
@@ -87,11 +91,17 @@ export default function DashboardGrid({ data }) {
         <StatsCard
           title="ROI"
           value={
-            <span className={data.stats.roi >= 0 ? "text-green-500" : "text-red-500"}>
+            <span
+              className={
+                data.stats.roi >= 0 ? "text-green-500" : "text-red-500"
+              }
+            >
               {formatPercent(data.stats.roi)}
             </span>
           }
-          subValue={`${roiAmount >= 0 ? "Ganancia" : "Pérdida"}: ${formatCurrency(Math.abs(roiAmount))}`}
+          subValue={`${
+            roiAmount >= 0 ? "Ganancia" : "Pérdida"
+          }: ${formatCurrency(Math.abs(roiAmount))}`}
           color={data.stats.roi >= 0 ? "green" : "red"}
           icon={<BarChartIcon className="w-6 h-6" />}
         />
@@ -99,11 +109,18 @@ export default function DashboardGrid({ data }) {
         <StatsCard
           title="Ganancia Media"
           value={
-            <span className={data.stats.avgGain >= 0 ? "text-purple-500" : "text-orange-500"}>
+            <span
+              className={
+                data.stats.avgGain >= 0 ? "text-purple-500" : "text-orange-500"
+              }
+            >
               {formatPercent(data.stats.avgGain)}
             </span>
           }
-          subValue={`Posiciones ganadoras: ${((data.stats.winRate / 100) * data.stockDistribution.length).toFixed(0)}/${data.stockDistribution.length}`}
+          subValue={`Posiciones ganadoras: ${(
+            (data.stats.winRate / 100) *
+            data.stockDistribution.length
+          ).toFixed(0)}/${data.stockDistribution.length}`}
           color={data.stats.avgGain >= 0 ? "purple" : "orange"}
           icon={<PercentIcon className="w-6 h-6" />}
         />
@@ -136,7 +153,9 @@ export default function DashboardGrid({ data }) {
             <StatsCard
               title="Cambio Dólar/Eur"
               value={(1 / data.exchangeRate.eurUsd).toFixed(4)}
-              subValue={`1 USD = ${(1 / data.exchangeRate.eurUsd).toFixed(4)} EUR`}
+              subValue={`1 USD = ${(1 / data.exchangeRate.eurUsd).toFixed(
+                4
+              )} EUR`}
               color="indigo"
               icon={<DollarIcon className="w-6 h-6" />}
             />
