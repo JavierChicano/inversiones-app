@@ -1,0 +1,1 @@
+ALTER TABLE `currency_exchanges` DROP COLUMN `notes`;

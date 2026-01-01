@@ -13,6 +13,7 @@ import {
   ChevronRightIcon,
   WalletGrowthIcon,
   WatchlistIcon,
+  CurrencyIcon,
 } from "../icons";
 
 export default function DashboardNav() {
@@ -65,6 +66,12 @@ export default function DashboardNav() {
       name: "Transacciones",
       href: "/dashboard/transactions",
       icon: <ClipboardListIcon className="w-5 h-5" />,
+    },
+    {
+      id: "divisas",
+      name: "Divisas",
+      href: "/dashboard/divisas",
+      icon: <CurrencyIcon className="w-5 h-5" />,
     },
     {
       id: "analytics",
