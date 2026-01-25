@@ -3,13 +3,16 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import * as echarts from 'echarts';
 
-export default function ProgressionChart({ data }) {
+export default function ProgressionChart({ data, transactions = [], exchangeRate = 1.1 }) {
   const chartRef = useRef(null);
   const [timeRange, setTimeRange] = useState('30d'); // Por defecto 30 días
 
+  // Calcular tasa de conversión de USD a EUR
+  const usdToEur = 1 / exchangeRate;
+
   // Memoizar datos filtrados para evitar cambios en dependencias
   const filteredData = useMemo(() => {
-    if (!data || data.length === 0) return { dates: [], values: [], invested: [], netGains: [] };
+    if (!data || data.length === 0) return { dates: [], values: [], invested: [], transactionMarks: [] };
     
     const now = new Date();
     let cutoffDate;
@@ -59,28 +62,98 @@ export default function ProgressionChart({ data }) {
     
     const values = allDates.map(date => {
       const dateKey = date.toDateString();
-      return dataMap.has(dateKey) ? dataMap.get(dateKey).value : null;
+      // Convertir de USD a EUR
+      return dataMap.has(dateKey) ? dataMap.get(dateKey).value * usdToEur : null;
     });
     
+    // Usar solo los valores de invested de los snapshots (no calcular valores inventados)
     const invested = allDates.map(date => {
       const dateKey = date.toDateString();
-      return dataMap.has(dateKey) ? dataMap.get(dateKey).invested : null;
-    });
-    
-    const netGains = allDates.map(date => {
-      const dateKey = date.toDateString();
-      return dataMap.has(dateKey) ? dataMap.get(dateKey).netGain : null;
+      if (dataMap.has(dateKey) && dataMap.get(dateKey).invested !== null) {
+        // Convertir snapshot de USD a EUR
+        return dataMap.get(dateKey).invested * usdToEur;
+      }
+      return null;
     });
 
-    return { dates, values, invested, netGains };
-  }, [data, timeRange]);
+    // Filtrar y agrupar transacciones dentro del rango de tiempo por fecha
+    const transactionsByDate = new Map();
+    
+    transactions
+      .filter(tx => {
+        const txDate = new Date(tx.date);
+        return txDate >= cutoffDate && txDate <= now;
+      })
+      .forEach(tx => {
+        const txDate = new Date(tx.date);
+        const dateStr = txDate.toLocaleDateString('es-ES', { month: 'short', day: 'numeric' });
+        const dateIndex = dates.indexOf(dateStr);
+        
+        if (dateIndex === -1) return;
+        
+        const dateKey = `${dateIndex}`;
+        if (!transactionsByDate.has(dateKey)) {
+          transactionsByDate.set(dateKey, {
+            dateIndex,
+            dateStr,
+            value: values[dateIndex],
+            transactions: [],
+          });
+        }
+        
+        transactionsByDate.get(dateKey).transactions.push({
+          type: tx.type,
+          ticker: tx.ticker,
+          quantity: tx.quantity,
+          pricePerUnit: tx.pricePerUnit,
+          fees: tx.fees,
+        });
+      });
+
+    // Crear marcadores agrupados
+    const transactionMarks = Array.from(transactionsByDate.values()).map(group => {
+      const buys = group.transactions.filter(t => t.type === 'BUY');
+      const sells = group.transactions.filter(t => t.type === 'SELL');
+      
+      // Determinar color del marcador
+      let color;
+      if (sells.length > 0 && buys.length > 0) {
+        // Si hay compras y ventas, usar color naranja (mixto)
+        color = '#f97316';
+      } else if (sells.length > 0) {
+        // Solo ventas: rojo
+        color = '#ef4444';
+      } else {
+        // Solo compras: verde
+        color = '#22c55e';
+      }
+      
+      // Crear label visible separando compras y ventas
+      const buyTickers = buys.map(t => `▲${t.ticker}`);
+      const sellTickers = sells.map(t => `▼${t.ticker}`);
+      
+      // Mostrar primero las compras, luego las ventas
+      const label = [...buyTickers, ...sellTickers].join(' ');
+      
+      return {
+        coord: [group.dateIndex, group.value],
+        color,
+        label,
+        transactions: group.transactions,
+        buys: buys.length,
+        sells: sells.length,
+      };
+    });
+
+    return { dates, values, invested, transactionMarks };
+  }, [data, transactions, timeRange, usdToEur]);
 
   useEffect(() => {
     if (!chartRef.current || filteredData.dates.length === 0) return;
 
     const chart = echarts.init(chartRef.current);
 
-    const { dates, values, invested, netGains } = filteredData;
+    const { dates, values, invested, transactionMarks } = filteredData;
 
     const option = {
       backgroundColor: 'transparent',
@@ -107,7 +180,7 @@ export default function ProgressionChart({ data }) {
         },
       },
       legend: {
-        data: ['Valor Total', 'Invertido', 'Ganancia Neta'],
+        data: ['Valor Total', 'Invertido'],
         top: 10,
         left: 'center',
         textStyle: {
@@ -126,7 +199,7 @@ export default function ProgressionChart({ data }) {
         },
       },
       // Definir paleta de colores global
-      color: ['#3b82f6', '#a1a1aa', '#22c55e'],
+      color: ['#3b82f6', '#a1a1aa'],
       grid: {
         left: '3%',
         right: '4%',
@@ -149,6 +222,7 @@ export default function ProgressionChart({ data }) {
       },
       yAxis: {
         type: 'value',
+        scale: true, // Ajustar automáticamente el rango en lugar de empezar desde 0
         axisLine: {
           lineStyle: {
             color: '#3f3f46',
@@ -182,6 +256,59 @@ export default function ProgressionChart({ data }) {
               { offset: 1, color: 'rgba(59, 130, 246, 0.05)' },
             ]),
           },
+          markPoint: {
+            symbol: 'pin',
+            symbolSize: 50,
+            data: transactionMarks.map(mark => ({
+              coord: mark.coord,
+              value: mark.label,
+              itemStyle: {
+                color: mark.color,
+                borderColor: '#fff',
+                borderWidth: 2,
+                shadowBlur: 4,
+                shadowColor: 'rgba(0, 0, 0, 0.3)',
+              },
+              label: {
+                show: true,
+                position: 'top',
+                distance: 10,
+                formatter: mark.label,
+                color: '#fff',
+                fontSize: 11,
+                fontWeight: 'bold',
+                backgroundColor: mark.color,
+                padding: [3, 6],
+                borderRadius: 3,
+                shadowBlur: 2,
+                shadowColor: 'rgba(0, 0, 0, 0.3)',
+              },
+              emphasis: {
+                scale: 1.2,
+                label: {
+                  show: true,
+                  formatter: () => {
+                    const lines = [];
+                    mark.transactions.forEach(tx => {
+                      const icon = tx.type === 'BUY' ? '💚' : '🔴';
+                      lines.push(`${icon} ${tx.ticker}: ${tx.quantity.toFixed(2)} - $${tx.pricePerUnit.toFixed(2)}`);
+                    });
+                    return lines.join('\n');
+                  },
+                  color: '#fff',
+                  fontSize: 11,
+                  backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                  padding: [6, 10],
+                  borderRadius: 4,
+                  borderColor: mark.color,
+                  borderWidth: 2,
+                  shadowBlur: 4,
+                  shadowColor: 'rgba(0, 0, 0, 0.5)',
+                  lineHeight: 16,
+                },
+              },
+            })),
+          },
         },
         {
           name: 'Invertido',
@@ -192,18 +319,6 @@ export default function ProgressionChart({ data }) {
             color: '#a1a1aa',
             width: 2,
             type: 'dashed',
-          },
-          showSymbol: false, // Ocultar puntos, solo línea
-          connectNulls: false, // No conectar líneas donde no hay datos
-        },
-        {
-          name: 'Ganancia Neta',
-          type: 'line',
-          smooth: true,
-          data: netGains,
-          lineStyle: {
-            color: '#22c55e',
-            width: 2,
           },
           showSymbol: false, // Ocultar puntos, solo línea
           connectNulls: false, // No conectar líneas donde no hay datos
@@ -226,7 +341,7 @@ export default function ProgressionChart({ data }) {
     <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 h-full">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-white text-lg font-semibold">
-          Progresión con el tiempo - neto
+          Progresión del Portfolio
         </h3>
         
         {/* Selector de rango de tiempo */}

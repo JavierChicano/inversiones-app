@@ -113,7 +113,7 @@ export default function CurrencyExchangesTable({ exchanges, onDelete, onEdit }) 
                     <td className="py-4 px-4 text-white text-sm">
                       TOTAL
                     </td>
-                    <td className="py-4 px-4 text-center text-zinc-400 text-sm">
+                    <td className="py-4 px-4 text-left text-zinc-400 text-sm">
                       —
                     </td>
                     <td className="py-4 px-4 text-center text-white font-bold text-sm">

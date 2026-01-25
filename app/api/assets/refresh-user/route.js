@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { findAllUserTransactions } from '@/lib/repository/transaction.repository';
 import { findAssetByTicker } from '@/lib/repository/asset.repository';
 import { fetchAssetData } from '@/lib/services/assetData.service';
+import { shouldUpdateAsset, getMarketStatus } from '@/lib/utils/marketHours';
 import { db } from '@/lib/db/index.ts';
 import { assets } from '@/lib/db/schema.js';
 import { eq } from 'drizzle-orm';
@@ -37,6 +38,10 @@ export async function POST(request) {
       });
     }
 
+    // Verificar estado del mercado
+    const marketStatus = getMarketStatus();
+    console.log(`Estado del mercado: ${marketStatus.message} (${marketStatus.etTime})`);
+
     // Actualizar cada asset del usuario (stocks, crypto y forex)
     const updatePromises = userTickers.map(async (ticker) => {
       try {
@@ -44,6 +49,18 @@ export async function POST(request) {
         if (!asset) {
           console.warn(`Asset ${ticker} no encontrado en la base de datos`);
           return { ticker, success: false, reason: 'not_found' };
+        }
+
+        // Verificar si el asset está activo
+        if (asset.isActive === false) {
+          console.log(`⏭️ ${ticker} omitido - asset desactivado (isActive=false)`);
+          return { ticker, success: false, reason: 'inactive', type: asset.type };
+        }
+
+        // Verificar si el asset debe actualizarse según el horario de mercado
+        if (!shouldUpdateAsset(asset.type)) {
+          console.log(`⏭️ ${ticker} (${asset.type}) omitido - mercado cerrado`);
+          return { ticker, success: false, reason: 'market_closed', type: asset.type };
         }
 
         // Obtener datos actualizados de la API externa (funciona para STOCK, CRYPTO y FIAT)
@@ -68,6 +85,8 @@ export async function POST(request) {
     const results = await Promise.all(updatePromises);
     const successful = results.filter(r => r.success);
     const failed = results.filter(r => !r.success);
+    const skippedMarket = results.filter(r => r.reason === 'market_closed');
+    const skippedInactive = results.filter(r => r.reason === 'inactive');
 
     // Separar por tipo para el log
     const cryptos = successful.filter(r => r.type === 'CRYPTO');
@@ -79,16 +98,27 @@ export async function POST(request) {
     console.log(`Twelve Data: ${stocks.length} consulta(s) - Tickers: [${stocks.map(r => r.ticker).join(', ')}]`);
     console.log(`CoinGecko: ${cryptos.length} consulta(s) - Tickers: [${cryptos.map(r => r.ticker).join(', ')}]`);
     console.log(`Total assets actualizados: ${successful.length}`);
+    if (skippedInactive.length > 0) {
+      console.log(`Assets omitidos (desactivados): ${skippedInactive.length} - [${skippedInactive.map(r => r.ticker).join(', ')}]`);
+    }
+    if (skippedMarket.length > 0) {
+      console.log(`Assets omitidos (mercado cerrado): ${skippedMarket.length} - [${skippedMarket.map(r => r.ticker).join(', ')}]`);
+    }
     if (failed.length > 0) {
-      console.log(`Errores: ${failed.length} - Tickers: [${failed.map(r => r.ticker).join(', ')}]`);
+      const actualErrors = failed.filter(r => r.reason !== 'market_closed' && r.reason !== 'inactive');
+      if (actualErrors.length > 0) {
+        console.log(`Errores: ${actualErrors.length} - Tickers: [${actualErrors.map(r => r.ticker).join(', ')}]`);
+      }
     }
     console.log('=======================================');
 
     return NextResponse.json({
       message: `Actualización completada`,
+      marketStatus: marketStatus.message,
       total: userTickers.length,
       updated: successful.length,
-      failed: failed.length,
+      skipped: skippedMarket.length + skippedInactive.length,
+      failed: failed.filter(r => r.reason !== 'market_closed' && r.reason !== 'inactive').length,
       failures: failed.length > 0 ? failed : undefined,
     });
   } catch (error) {

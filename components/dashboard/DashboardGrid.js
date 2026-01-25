@@ -133,7 +133,11 @@ export default function DashboardGrid({ data }) {
       <div className="grid grid-cols-1 lg:grid-cols-6 gap-4">
         {/* Progression Chart - 4 columnas (2/3) */}
         <div className="lg:col-span-4 h-full">
-          <ProgressionChart data={data.progression} />
+          <ProgressionChart 
+            data={data.progression} 
+            transactions={data.transactions} 
+            exchangeRate={data.exchangeRate.eurUsd}
+          />
         </div>
 
         <div className="grid lg:col-span-2 gap-4">

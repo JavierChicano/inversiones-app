@@ -55,22 +55,22 @@ export async function GET(request) {
       }
 
       if (tx.type === 'BUY') {
-        // Actualizar precio promedio antes de añadir nuevas acciones
-        if (portfolio[ticker].quantity > 0) {
-          portfolio[ticker].avgBuyPrice = portfolio[ticker].totalCost / portfolio[ticker].quantity;
-        }
-        
         // Registrar fecha de primera compra
-        if (!portfolio[ticker].firstBuyDate || new Date(tx.date) < new Date(portfolio[ticker].firstBuyDate)) {
+        // Si la cantidad era 0 o muy cercana a 0 (posición cerrada), iniciamos nueva fecha
+        if (portfolio[ticker].quantity < 0.00000001) {
           portfolio[ticker].firstBuyDate = tx.date;
+        } else if (!portfolio[ticker].firstBuyDate || new Date(tx.date) < new Date(portfolio[ticker].firstBuyDate)) {
+          // Solo usar fecha más antigua si hay posiciones abiertas
+          console.log(`[${ticker}] Posición existente (${portfolio[ticker].quantity}) - Manteniendo firstBuyDate: ${portfolio[ticker].firstBuyDate}`);
         }
         
+        // Añadir la nueva compra al portfolio
         portfolio[ticker].quantity += tx.quantity;
         portfolio[ticker].totalCost += tx.quantity * tx.pricePerUnit + tx.fees;
         totalInvested += tx.quantity * tx.pricePerUnit + tx.fees;
         totalFees += tx.fees;
         
-        // Recalcular avgBuyPrice después de la compra
+        // Calcular precio medio ponderado: totalCost incluye todas las compras + fees
         portfolio[ticker].avgBuyPrice = portfolio[ticker].totalCost / portfolio[ticker].quantity;
       } else if (tx.type === 'SELL') {
         closedPositions++; // Incrementar contador de posiciones cerradas
@@ -88,6 +88,13 @@ export async function GET(request) {
         portfolio[ticker].totalCost -= sellCost;
         totalSellProceeds += sellRevenue;
         totalFees += tx.fees;
+        
+        // Si la posición se cerró completamente (con tolerancia para redondeo), reiniciar firstBuyDate
+        if (portfolio[ticker].quantity < 0.00000001 || portfolio[ticker].totalCost < 0.01) {
+          portfolio[ticker].firstBuyDate = null;
+          portfolio[ticker].quantity = 0; // Asegurar que sea exactamente 0
+          portfolio[ticker].totalCost = 0; // Asegurar que sea exactamente 0
+        }
       }
     });
 
@@ -171,6 +178,19 @@ export async function GET(request) {
     const eurUsdRate = eurUsdAsset?.currentPrice || 1.1;
     const usdEurRate = 1 / eurUsdRate; // Conversión USD a EUR
 
+    // Preparar transacciones para el gráfico (últimas 1000 transacciones)
+    const transactionsForChart = userTransactions
+      .map(tx => ({
+        date: new Date(tx.date).toISOString(),
+        type: tx.type,
+        ticker: tx.assetTicker,
+        quantity: tx.quantity,
+        pricePerUnit: tx.pricePerUnit,
+        fees: tx.fees,
+      }))
+      .sort((a, b) => new Date(a.date) - new Date(b.date))
+      .slice(-1000);
+
     // IMPORTANTE: Todas las transacciones están en USD
     // Los valores base (netTotal, netInvested, totalCurrentValue) están en USD
     // Para convertir a EUR, dividimos por eurUsdRate (o multiplicamos por usdEurRate)
@@ -195,6 +215,7 @@ export async function GET(request) {
         totalFees: totalFees,        closedPositions: closedPositions,      },
       stockDistribution: stockDistribution.sort((a, b) => b.percentage - a.percentage),
       progression: progression,
+      transactions: transactionsForChart,
       exchangeRate: {
         eurUsd: eurUsdRate,
       },
