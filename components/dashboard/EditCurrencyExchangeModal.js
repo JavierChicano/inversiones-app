@@ -142,7 +142,7 @@ export default function EditCurrencyExchangeModal({ exchange, onClose, onSuccess
             <button
               type="button"
               onClick={handleCurrencySwitch}
-              className="mt-6 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors"
+              className="btn-secondary mt-6 rounded-lg px-3"
             >
               ⇄
             </button>
@@ -194,7 +194,7 @@ export default function EditCurrencyExchangeModal({ exchange, onClose, onSuccess
               <button
                 type="button"
                 onClick={loadCurrentRate}
-                className="px-3 py-2 bg-primary hover:bg-indigo-600 text-white rounded-lg transition-colors"
+                className="btn-primary rounded-lg px-3"
               >
                 Actual
               </button>
@@ -222,7 +222,7 @@ export default function EditCurrencyExchangeModal({ exchange, onClose, onSuccess
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors"
+              className="btn-secondary flex-1 rounded-lg"
               disabled={loading}
             >
               Cancelar
@@ -230,7 +230,7 @@ export default function EditCurrencyExchangeModal({ exchange, onClose, onSuccess
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 px-4 py-2 bg-primary hover:bg-indigo-600 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-primary flex-1 rounded-lg"
             >
               {loading ? 'Guardando...' : 'Guardar'}
             </button>

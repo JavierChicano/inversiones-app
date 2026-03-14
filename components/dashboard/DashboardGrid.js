@@ -136,6 +136,7 @@ export default function DashboardGrid({ data }) {
           <ProgressionChart 
             data={data.progression} 
             transactions={data.transactions} 
+            progressionMeta={data.progressionMeta}
             exchangeRate={data.exchangeRate.eurUsd}
           />
         </div>

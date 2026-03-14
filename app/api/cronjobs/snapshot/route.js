@@ -180,7 +180,6 @@ export async function POST(req) {
           date: new Date(),
           totalInvested: currentInvested,
           totalValue: totalValue,
-          cashBalance: 0,
         });
 
         return { 

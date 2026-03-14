@@ -113,7 +113,7 @@ export default function DivisasPage() {
         <div className="flex gap-3">
           <button
             onClick={() => fetchExchanges(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors"
+            className="btn-secondary rounded-lg flex items-center gap-2"
           >
             <RefreshIcon className="w-5 h-5" />
             Actualizar

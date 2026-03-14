@@ -26,8 +26,16 @@ export default function DashboardPage() {
     try {
       setLoading(true);
       const token = localStorage.getItem('auth_token');
+      const now = new Date();
+      const startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const params = new URLSearchParams({
+        startDate: startDate.toISOString(),
+        endDate: now.toISOString(),
+        sampleEvery: '1',
+        maxSnapshots: '260',
+      });
       
-      const response = await fetch('/api/dashboard/stats', {
+      const response = await fetch(`/api/dashboard/stats?${params.toString()}`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
 

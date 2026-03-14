@@ -133,7 +133,7 @@ export default function TransactionsPage() {
                 )}
                 <button
                   onClick={() => setShowFilters(!showFilters)}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors text-sm"
+                  className="btn-secondary rounded-lg px-3 py-1.5 text-sm flex items-center gap-2"
                 >
                   {showFilters ? (
                     <>

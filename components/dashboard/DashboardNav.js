@@ -114,7 +114,7 @@ export default function DashboardNav() {
           <button
             onClick={handleRefresh}
             disabled={isRefreshing}
-            className={`px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors flex items-center gap-2 ${
+            className={`btn-secondary rounded-lg flex items-center gap-2 ${
               isRefreshing ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
             }`}
             title="Actualizar datos"
@@ -136,10 +136,10 @@ export default function DashboardNav() {
             <Link
               key={section.id}
               href={section.href}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+              className={`flex h-11 w-40 items-center justify-center gap-2 rounded-lg border text-sm font-medium transition-colors whitespace-nowrap ${
                 pathname === section.href
-                  ? "bg-primary text-white shadow-lg"
-                  : "text-zinc-400 hover:text-white hover:bg-zinc-800"
+                  ? "border-cyan-300/25 bg-cyan-300/15 text-cyan-100"
+                  : "border-transparent text-zinc-400 hover:border-zinc-700 hover:bg-zinc-800 hover:text-white"
               }`}
             >
               {section.icon}

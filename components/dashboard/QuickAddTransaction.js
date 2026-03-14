@@ -69,7 +69,7 @@ export default function QuickAddTransaction({ onTransactionAdded }) {
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-8 right-8 w-14 h-14 bg-primary hover:bg-indigo-600 text-white rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-110 z-50 cursor-pointer"
+        className="btn-primary fixed bottom-8 right-8 z-50 h-14 w-14 rounded-full p-0 shadow-lg transition-all hover:scale-110"
         title="Agregar Transacción"
       >
         <PlusIcon className="w-6 h-6" />
@@ -225,14 +225,14 @@ export default function QuickAddTransaction({ onTransactionAdded }) {
                 <button
                   type="button"
                   onClick={() => setIsOpen(false)}
-                  className="flex-1 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors cursor-pointer"
+                  className="btn-secondary flex-1 rounded-lg"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex-1 px-4 py-2 bg-primary hover:bg-indigo-600 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  className="btn-primary flex-1 rounded-lg"
                 >
                   {loading ? 'Guardando...' : 'Agregar'}
                 </button>

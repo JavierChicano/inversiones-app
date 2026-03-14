@@ -6,6 +6,13 @@ import { findSnapshotsByUser } from '@/lib/repository/portfolio.repository';
 
 export async function GET(request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const startDate = searchParams.get('startDate') || undefined;
+    const endDate = searchParams.get('endDate') || undefined;
+    const sampleEvery = Math.max(1, parseInt(searchParams.get('sampleEvery') || '1', 10));
+    const maxSnapshots = Math.max(0, parseInt(searchParams.get('maxSnapshots') || '0', 10));
+    const onlyProgression = searchParams.get('onlyProgression') === '1';
+
     // Verificar autenticación
     const authHeader = request.headers.get('authorization');
     if (!authHeader) {
@@ -19,6 +26,90 @@ export async function GET(request) {
 
     // Obtener todas las transacciones del usuario
     const userTransactions = await findAllUserTransactions(userId);
+
+    // Obtener histórico de snapshots para el gráfico de progresión.
+    const snapshotFilters = { startDate, endDate };
+    const snapshots = await findSnapshotsByUser(userId, snapshotFilters);
+
+    // Muestreo opcional: conservar primero/último y saltar intermedios según consulta.
+    let sampledSnapshots = snapshots;
+
+    if (sampleEvery > 1 && sampledSnapshots.length > 2) {
+      const descending = [...sampledSnapshots];
+      const ascending = descending.reverse();
+      const reduced = ascending.filter(
+        (_, index) => index === 0 || index === ascending.length - 1 || index % sampleEvery === 0
+      );
+      sampledSnapshots = reduced.reverse();
+    }
+
+    if (maxSnapshots > 0 && sampledSnapshots.length > maxSnapshots) {
+      const descending = [...sampledSnapshots];
+      const ascending = descending.reverse();
+      const keep = [ascending[0]];
+      const step = (ascending.length - 1) / (maxSnapshots - 1);
+
+      for (let i = 1; i < maxSnapshots - 1; i++) {
+        keep.push(ascending[Math.round(i * step)]);
+      }
+
+      keep.push(ascending[ascending.length - 1]);
+
+      const uniqueKeep = keep.filter(
+        (item, index, arr) => index === 0 || item.date.getTime() !== arr[index - 1].date.getTime()
+      );
+      sampledSnapshots = uniqueKeep.reverse();
+    }
+
+    let progression = sampledSnapshots.map((snap) => ({
+      date: new Date(snap.date).toISOString(),
+      value: snap.totalValue,
+      invested: snap.totalInvested,
+      netGain: snap.totalValue - snap.totalInvested,
+    }));
+
+    const parsedStartDate = startDate ? new Date(startDate) : null;
+    const parsedEndDate = endDate ? new Date(endDate) : null;
+
+    const transactionsInRange = userTransactions.filter((tx) => {
+      const txDate = new Date(tx.date);
+
+      if (parsedStartDate && txDate < parsedStartDate) return false;
+      if (parsedEndDate && txDate > parsedEndDate) return false;
+
+      return true;
+    });
+
+    const transactionsForChart = transactionsInRange
+      .map((tx) => ({
+        date: new Date(tx.date).toISOString(),
+        type: tx.type,
+        ticker: tx.assetTicker,
+        quantity: tx.quantity,
+        pricePerUnit: tx.pricePerUnit,
+        fees: tx.fees,
+      }))
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    const progressionMeta = {
+      snapshotsQueried: snapshots.length,
+      snapshotsReturned: progression.length,
+      sampleEvery,
+      maxSnapshots: maxSnapshots || null,
+      transactionsReturned: transactionsForChart.length,
+      range: {
+        startDate: startDate || null,
+        endDate: endDate || null,
+      },
+    };
+
+    if (onlyProgression) {
+      return NextResponse.json({
+        progression,
+        transactions: transactionsForChart,
+        progressionMeta,
+      });
+    }
 
     // Obtener precios actuales de los assets
     const assetPrices = await findAllAssets();
@@ -153,16 +244,6 @@ export async function GET(request) {
       ? stockDistribution.reduce((sum, p) => sum + p.gainLossPercent, 0) / positions 
       : 0;
 
-    // Obtener histórico de snapshots para el gráfico de progresión
-    const snapshots = await findSnapshotsByUser(userId, { limit: 1000 });
-
-    const progression = snapshots.map((snap) => ({
-      date: new Date(snap.date).toISOString(),
-      value: snap.totalValue,
-      invested: snap.totalInvested,
-      netGain: snap.totalValue - snap.totalInvested,
-    }));
-
     // Si no hay snapshots, generar uno con los datos actuales
     if (progression.length === 0) {
       progression.push({
@@ -177,19 +258,6 @@ export async function GET(request) {
     const eurUsdAsset = assetPrices.find(a => a.ticker === 'EURUSD');
     const eurUsdRate = eurUsdAsset?.currentPrice || 1.1;
     const usdEurRate = 1 / eurUsdRate; // Conversión USD a EUR
-
-    // Preparar transacciones para el gráfico (últimas 1000 transacciones)
-    const transactionsForChart = userTransactions
-      .map(tx => ({
-        date: new Date(tx.date).toISOString(),
-        type: tx.type,
-        ticker: tx.assetTicker,
-        quantity: tx.quantity,
-        pricePerUnit: tx.pricePerUnit,
-        fees: tx.fees,
-      }))
-      .sort((a, b) => new Date(a.date) - new Date(b.date))
-      .slice(-1000);
 
     // IMPORTANTE: Todas las transacciones están en USD
     // Los valores base (netTotal, netInvested, totalCurrentValue) están en USD
@@ -216,6 +284,7 @@ export async function GET(request) {
       stockDistribution: stockDistribution.sort((a, b) => b.percentage - a.percentage),
       progression: progression,
       transactions: transactionsForChart,
+      progressionMeta,
       exchangeRate: {
         eurUsd: eurUsdRate,
       },

@@ -2,106 +2,373 @@
 
 import { useEffect, useRef, useState, useMemo } from 'react';
 import * as echarts from 'echarts';
+import { useCache } from '@/context/CacheContext';
 
-export default function ProgressionChart({ data, transactions = [], exchangeRate = 1.1 }) {
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function toInputDate(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
+    date.getDate()
+  ).padStart(2, '0')}`;
+}
+
+function parseInputDate(value) {
+  if (!value) return null;
+  const [year, month, day] = value.split('-').map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+}
+
+function downsampleEvenly(items, maxPoints) {
+  if (items.length <= maxPoints) return items;
+
+  const sampled = [items[0]];
+  const step = (items.length - 1) / (maxPoints - 1);
+
+  for (let i = 1; i < maxPoints - 1; i++) {
+    sampled.push(items[Math.round(i * step)]);
+  }
+
+  sampled.push(items[items.length - 1]);
+
+  return sampled.filter((item, index, arr) => index === 0 || item.ts !== arr[index - 1].ts);
+}
+
+function findNearestIndex(sortedTimestamps, targetTs) {
+  if (!sortedTimestamps.length) return -1;
+
+  let left = 0;
+  let right = sortedTimestamps.length - 1;
+
+  while (left < right) {
+    const mid = Math.floor((left + right) / 2);
+    if (sortedTimestamps[mid] < targetTs) {
+      left = mid + 1;
+    } else {
+      right = mid;
+    }
+  }
+
+  if (left === 0) return 0;
+  const prev = left - 1;
+  return Math.abs(sortedTimestamps[left] - targetTs) < Math.abs(sortedTimestamps[prev] - targetTs)
+    ? left
+    : prev;
+}
+
+function formatCustomLabel(inputDate) {
+  const parsed = parseInputDate(inputDate);
+  if (!parsed) return '-';
+  return parsed.toLocaleDateString('es-ES', {
+    day: '2-digit',
+    month: 'short',
+    year: '2-digit',
+  });
+}
+
+export default function ProgressionChart({ data, transactions = [], progressionMeta = null, exchangeRate = 1.1 }) {
   const chartRef = useRef(null);
   const [timeRange, setTimeRange] = useState('30d'); // Por defecto 30 días
+  const [customRange, setCustomRange] = useState({ from: '', to: '' });
+  const [showTransactionMarks, setShowTransactionMarks] = useState(true);
+  const [seriesData, setSeriesData] = useState(data || []);
+  const [seriesTransactions, setSeriesTransactions] = useState(transactions || []);
+  const [queryMeta, setQueryMeta] = useState(progressionMeta);
+  const [isSeriesLoading, setIsSeriesLoading] = useState(false);
+  const { getCachedData, setCachedData, PROGRESSION_CACHE_DURATION } = useCache();
 
   // Calcular tasa de conversión de USD a EUR
   const usdToEur = 1 / exchangeRate;
 
+  useEffect(() => {
+    setSeriesData(data || []);
+  }, [data]);
+
+  useEffect(() => {
+    setSeriesTransactions(transactions || []);
+  }, [transactions]);
+
+  useEffect(() => {
+    setQueryMeta(progressionMeta || null);
+  }, [progressionMeta]);
+
+  useEffect(() => {
+    if (!seriesData || seriesData.length === 0) return;
+
+    const sorted = [...seriesData].sort((a, b) => new Date(a.date) - new Date(b.date));
+    const firstDate = new Date(sorted[0].date);
+    const now = new Date();
+
+    setCustomRange((prev) => {
+      const next = {
+        from: prev.from || toInputDate(firstDate),
+        to: prev.to || toInputDate(now),
+      };
+
+      if (prev.from === next.from && prev.to === next.to) {
+        return prev;
+      }
+
+      return next;
+    });
+  }, [seriesData]);
+
+  useEffect(() => {
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
+
+    const now = parseInputDate(toInputDate(new Date())) || new Date();
+    let fromDate = null;
+    let toDate = new Date(now);
+
+    if (timeRange === '7d') {
+      fromDate = new Date(now.getTime() - 7 * DAY_MS);
+    } else if (timeRange === '30d') {
+      fromDate = new Date(now.getTime() - 30 * DAY_MS);
+    } else if (timeRange === '3m') {
+      fromDate = new Date(now.getTime() - 90 * DAY_MS);
+    } else if (timeRange === '1y') {
+      fromDate = new Date(now.getTime() - 365 * DAY_MS);
+    } else if (timeRange === 'custom') {
+      fromDate = parseInputDate(customRange.from);
+      toDate = parseInputDate(customRange.to) || new Date(now);
+
+      if (!fromDate || !toDate) return;
+    }
+
+    const spanDays = fromDate ? Math.max(1, Math.ceil((toDate - fromDate) / DAY_MS)) : 1000;
+
+    let sampleEvery = 1;
+    let maxSnapshots = 240;
+
+    if (spanDays <= 7) {
+      sampleEvery = 1;
+      maxSnapshots = 220;
+    } else if (spanDays <= 30) {
+      sampleEvery = 1;
+      maxSnapshots = 260;
+    } else if (spanDays <= 90) {
+      sampleEvery = 2;
+      maxSnapshots = 300;
+    } else if (spanDays <= 365) {
+      sampleEvery = 4;
+      maxSnapshots = 365;
+    } else {
+      sampleEvery = 8;
+      maxSnapshots = 420;
+    }
+
+    const params = new URLSearchParams({
+      onlyProgression: '1',
+      sampleEvery: String(sampleEvery),
+      maxSnapshots: String(maxSnapshots),
+    });
+
+    if (fromDate) {
+      params.set('startDate', fromDate.toISOString());
+      params.set('endDate', toDate.toISOString());
+    }
+
+    const cacheKey = `dashboard-progression:${params.toString()}`;
+    const cached = getCachedData(cacheKey);
+    if (cached) {
+      setSeriesData(cached.progression || []);
+      setSeriesTransactions(cached.transactions || []);
+      setQueryMeta(cached.progressionMeta || null);
+      return;
+    }
+
+    let isCancelled = false;
+
+    const loadProgression = async () => {
+      try {
+        setIsSeriesLoading(true);
+        const response = await fetch(`/api/dashboard/stats?${params.toString()}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) return;
+
+        const payload = await response.json();
+        if (isCancelled) return;
+
+        setSeriesData(payload.progression || []);
+        setSeriesTransactions(payload.transactions || []);
+        setQueryMeta(payload.progressionMeta || null);
+        setCachedData(cacheKey, payload, PROGRESSION_CACHE_DURATION);
+      } catch (error) {
+        console.error('Error cargando progresion por rango:', error);
+      } finally {
+        if (!isCancelled) {
+          setIsSeriesLoading(false);
+        }
+      }
+    };
+
+    loadProgression();
+
+    return () => {
+      isCancelled = true;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeRange, customRange.from, customRange.to]);
+
   // Memoizar datos filtrados para evitar cambios en dependencias
   const filteredData = useMemo(() => {
-    if (!data || data.length === 0) return { dates: [], values: [], invested: [], transactionMarks: [] };
-    
+    if (!seriesData || seriesData.length === 0) {
+      return {
+        dates: [],
+        values: [],
+        invested: [],
+        transactionMarks: [],
+        performance: null,
+        rangeLabel: 'Sin datos',
+      };
+    }
+
     const now = new Date();
-    let cutoffDate;
-    let intervalDays;
+    const normalizedSnapshots = [...seriesData]
+      .map((item) => {
+        const parsedDate = new Date(item.date);
+        return {
+          ts: parsedDate.getTime(),
+          date: parsedDate,
+          value: Number.isFinite(item.value) ? item.value * usdToEur : null,
+          invested: Number.isFinite(item.invested) ? item.invested * usdToEur : null,
+        };
+      })
+      .filter((item) => Number.isFinite(item.ts))
+      .sort((a, b) => a.ts - b.ts);
+
+    if (normalizedSnapshots.length === 0) {
+      return {
+        dates: [],
+        values: [],
+        invested: [],
+        transactionMarks: [],
+        performance: null,
+        rangeLabel: 'Sin datos',
+      };
+    }
+
+    const firstDataDate = new Date(normalizedSnapshots[0].ts);
+    let rangeStart;
+    let rangeEnd = new Date(now);
+
+    const currentRangeLabel = {
+      '7d': 'Ultimos 7 dias',
+      '30d': 'Ultimos 30 dias',
+      '3m': 'Ultimos 3 meses',
+      '1y': 'Ultimo año',
+      all: 'Desde inicio',
+      custom: 'Personalizado',
+    };
 
     switch (timeRange) {
       case '7d':
-        cutoffDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        intervalDays = 7;
+        rangeStart = new Date(now.getTime() - 7 * DAY_MS);
         break;
       case '30d':
-        cutoffDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        intervalDays = 30;
+        rangeStart = new Date(now.getTime() - 30 * DAY_MS);
         break;
       case '3m':
-        cutoffDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-        intervalDays = 90;
+        rangeStart = new Date(now.getTime() - 90 * DAY_MS);
         break;
       case '1y':
-        cutoffDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
-        intervalDays = 365;
+        rangeStart = new Date(now.getTime() - 365 * DAY_MS);
         break;
-      default:
-        cutoffDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        intervalDays = 30;
-    }
-
-    // Generar todas las fechas del rango (completo)
-    const allDates = [];
-    for (let i = intervalDays; i >= 0; i--) {
-      const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-      allDates.push(date);
-    }
-
-    // Crear mapa de datos reales
-    const dataMap = new Map();
-    data.forEach(item => {
-      const itemDate = new Date(item.date);
-      const dateKey = itemDate.toDateString();
-      dataMap.set(dateKey, item);
-    });
-
-    // Combinar fechas completas con datos disponibles
-    const dates = allDates.map(date => 
-      date.toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })
-    );
-    
-    const values = allDates.map(date => {
-      const dateKey = date.toDateString();
-      // Convertir de USD a EUR
-      return dataMap.has(dateKey) ? dataMap.get(dateKey).value * usdToEur : null;
-    });
-    
-    // Usar solo los valores de invested de los snapshots (no calcular valores inventados)
-    const invested = allDates.map(date => {
-      const dateKey = date.toDateString();
-      if (dataMap.has(dateKey) && dataMap.get(dateKey).invested !== null) {
-        // Convertir snapshot de USD a EUR
-        return dataMap.get(dateKey).invested * usdToEur;
+      case 'all':
+        rangeStart = new Date(firstDataDate);
+        break;
+      case 'custom': {
+        const parsedFrom = parseInputDate(customRange.from);
+        const parsedTo = parseInputDate(customRange.to);
+        rangeStart = parsedFrom || new Date(firstDataDate);
+        rangeEnd = parsedTo || new Date(now);
+        break;
       }
-      return null;
-    });
+      default:
+        rangeStart = new Date(now.getTime() - 30 * DAY_MS);
+    }
+
+    rangeStart.setHours(0, 0, 0, 0);
+    rangeEnd.setHours(23, 59, 59, 999);
+
+    if (rangeStart > rangeEnd) {
+      const temp = rangeStart;
+      rangeStart = rangeEnd;
+      rangeEnd = temp;
+    }
+
+    const rangeStartTs = rangeStart.getTime();
+    const rangeEndTs = rangeEnd.getTime();
+    const spanDays = Math.max(1, Math.round((rangeEndTs - rangeStartTs) / DAY_MS));
+
+    const snapshotsInRange = normalizedSnapshots.filter((snapshot) => snapshot.ts >= rangeStartTs && snapshot.ts <= rangeEndTs);
+
+    if (snapshotsInRange.length === 0) {
+      const rangeLabel =
+        timeRange === 'custom'
+          ? `${formatCustomLabel(customRange.from)} - ${formatCustomLabel(customRange.to)}`
+          : currentRangeLabel[timeRange] || 'Ultimos 30 dias';
+
+      return {
+        dates: [],
+        values: [],
+        invested: [],
+        transactionMarks: [],
+        performance: null,
+        rangeLabel,
+      };
+    }
+
+    // Muestreo adaptativo según el periodo seleccionado para mantener rendimiento y lectura
+    const maxPoints =
+      spanDays <= 35 ? 60 : spanDays <= 120 ? 90 : spanDays <= 370 ? 130 : 180;
+
+    const sampledSnapshots = downsampleEvenly(snapshotsInRange, maxPoints);
+    const sampledTimestamps = sampledSnapshots.map((snapshot) => snapshot.ts);
+    const firstSampleTs = sampledTimestamps[0];
+    const lastSampleTs = sampledTimestamps[sampledTimestamps.length - 1];
+
+    const useYearInLabel = spanDays > 180;
+
+    const dates = sampledSnapshots.map((snapshot) =>
+      snapshot.date.toLocaleDateString(
+        'es-ES',
+        useYearInLabel ? { month: 'short', year: '2-digit' } : { month: 'short', day: 'numeric' }
+      )
+    );
+
+    const values = sampledSnapshots.map((snapshot) => snapshot.value);
+    const invested = sampledSnapshots.map((snapshot) => snapshot.invested);
 
     // Filtrar y agrupar transacciones dentro del rango de tiempo por fecha
-    const transactionsByDate = new Map();
-    
-    transactions
-      .filter(tx => {
-        const txDate = new Date(tx.date);
-        return txDate >= cutoffDate && txDate <= now;
+    const transactionsByIndex = new Map();
+
+    seriesTransactions
+      .filter((tx) => {
+        const txTime = new Date(tx.date).getTime();
+        return txTime >= firstSampleTs && txTime <= lastSampleTs;
       })
-      .forEach(tx => {
-        const txDate = new Date(tx.date);
-        const dateStr = txDate.toLocaleDateString('es-ES', { month: 'short', day: 'numeric' });
-        const dateIndex = dates.indexOf(dateStr);
-        
-        if (dateIndex === -1) return;
-        
-        const dateKey = `${dateIndex}`;
-        if (!transactionsByDate.has(dateKey)) {
-          transactionsByDate.set(dateKey, {
-            dateIndex,
-            dateStr,
-            value: values[dateIndex],
+      .forEach((tx) => {
+        const txTime = new Date(tx.date).getTime();
+        const pointIndex = findNearestIndex(sampledTimestamps, txTime);
+
+        if (pointIndex < 0 || values[pointIndex] === null || values[pointIndex] === undefined) {
+          return;
+        }
+
+        if (!transactionsByIndex.has(pointIndex)) {
+          transactionsByIndex.set(pointIndex, {
+            pointIndex,
             transactions: [],
           });
         }
-        
-        transactionsByDate.get(dateKey).transactions.push({
+
+        transactionsByIndex.get(pointIndex).transactions.push({
           type: tx.type,
           ticker: tx.ticker,
           quantity: tx.quantity,
@@ -111,10 +378,11 @@ export default function ProgressionChart({ data, transactions = [], exchangeRate
       });
 
     // Crear marcadores agrupados
-    const transactionMarks = Array.from(transactionsByDate.values()).map(group => {
-      const buys = group.transactions.filter(t => t.type === 'BUY');
-      const sells = group.transactions.filter(t => t.type === 'SELL');
-      
+    const transactionMarks = Array.from(transactionsByIndex.values())
+      .map((group) => {
+      const buys = group.transactions.filter((t) => t.type === 'BUY');
+      const sells = group.transactions.filter((t) => t.type === 'SELL');
+
       // Determinar color del marcador
       let color;
       if (sells.length > 0 && buys.length > 0) {
@@ -131,22 +399,67 @@ export default function ProgressionChart({ data, transactions = [], exchangeRate
       // Crear label visible separando compras y ventas
       const buyTickers = buys.map(t => `▲${t.ticker}`);
       const sellTickers = sells.map(t => `▼${t.ticker}`);
-      
+
       // Mostrar primero las compras, luego las ventas
       const label = [...buyTickers, ...sellTickers].join(' ');
-      
+
+      const markerValue = values[group.pointIndex];
+      if (markerValue === null) return null;
+
       return {
-        coord: [group.dateIndex, group.value],
+        coord: [group.pointIndex, markerValue],
         color,
         label,
         transactions: group.transactions,
         buys: buys.length,
         sells: sells.length,
       };
-    });
+    })
+      .filter(Boolean);
 
-    return { dates, values, invested, transactionMarks };
-  }, [data, transactions, timeRange, usdToEur]);
+    let firstSnapshotIndex = -1;
+    let lastSnapshotIndex = -1;
+
+    for (let i = 0; i < values.length; i++) {
+      if (values[i] !== null && invested[i] !== null) {
+        firstSnapshotIndex = i;
+        break;
+      }
+    }
+
+    for (let i = values.length - 1; i >= 0; i--) {
+      if (values[i] !== null && invested[i] !== null) {
+        lastSnapshotIndex = i;
+        break;
+      }
+    }
+
+    let performance = null;
+    if (firstSnapshotIndex !== -1 && lastSnapshotIndex !== -1 && lastSnapshotIndex > firstSnapshotIndex) {
+      const startValue = values[firstSnapshotIndex];
+      const endValue = values[lastSnapshotIndex];
+      const startInvested = invested[firstSnapshotIndex];
+      const endInvested = invested[lastSnapshotIndex];
+
+      const portfolioChange = endValue - startValue;
+      const capitalChange = endInvested - startInvested;
+      const netGain = portfolioChange - capitalChange;
+      const netGainPct = startInvested > 0 ? (netGain / startInvested) * 100 : null;
+
+      performance = {
+        netGain,
+        netGainPct,
+        capitalChange,
+      };
+    }
+
+    const rangeLabel =
+      timeRange === 'custom'
+        ? `${formatCustomLabel(customRange.from)} - ${formatCustomLabel(customRange.to)}`
+        : currentRangeLabel[timeRange] || 'Ultimos 30 dias';
+
+    return { dates, values, invested, transactionMarks, performance, rangeLabel };
+  }, [seriesData, seriesTransactions, timeRange, usdToEur, customRange]);
 
   useEffect(() => {
     if (!chartRef.current || filteredData.dates.length === 0) return;
@@ -218,6 +531,7 @@ export default function ProgressionChart({ data, transactions = [], exchangeRate
         },
         axisLabel: {
           color: '#a1a1aa',
+          hideOverlap: true,
         },
       },
       yAxis: {
@@ -256,7 +570,8 @@ export default function ProgressionChart({ data, transactions = [], exchangeRate
               { offset: 1, color: 'rgba(59, 130, 246, 0.05)' },
             ]),
           },
-          markPoint: {
+          markPoint: showTransactionMarks
+            ? {
             symbol: 'pin',
             symbolSize: 50,
             data: transactionMarks.map(mark => ({
@@ -308,7 +623,8 @@ export default function ProgressionChart({ data, transactions = [], exchangeRate
                 },
               },
             })),
-          },
+            }
+            : { data: [] },
         },
         {
           name: 'Invertido',
@@ -326,7 +642,7 @@ export default function ProgressionChart({ data, transactions = [], exchangeRate
       ],
     };
 
-    chart.setOption(option);
+    chart.setOption(option, { notMerge: true });
 
     const handleResize = () => chart.resize();
     window.addEventListener('resize', handleResize);
@@ -335,26 +651,110 @@ export default function ProgressionChart({ data, transactions = [], exchangeRate
       window.removeEventListener('resize', handleResize);
       chart.dispose();
     };
-  }, [filteredData]); // Solo depender de filteredData memoizado
+  }, [filteredData, showTransactionMarks]); // Solo depender de datos y toggle
 
+  const periodPerformance = filteredData.performance;
   return (
     <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 h-full">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-white text-lg font-semibold">
-          Progresión del Portfolio
-        </h3>
-        
-        {/* Selector de rango de tiempo */}
-        <select
-          value={timeRange}
-          onChange={(e) => setTimeRange(e.target.value)}
-          className="cursor-pointer bg-zinc-800 text-white border border-zinc-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="7d">Últimos 7 días</option>
-          <option value="30d">Últimos 30 días</option>
-          <option value="3m">Últimos 3 meses</option>
-          <option value="1y">Último año</option>
-        </select>
+      <div className="mb-4 flex flex-col gap-4">
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h3 className="text-white text-lg font-semibold">Progresión del Portfolio</h3>
+            <p className="text-xs text-zinc-400 mt-1">Periodo activo: {filteredData.rangeLabel}</p>
+          </div>
+
+          {periodPerformance ? (
+            <div className="min-w-65 rounded-xl border border-zinc-700 bg-zinc-900/80 px-4 py-3 text-sm">
+              <p className="text-zinc-400 text-[11px] uppercase tracking-[0.16em]">Rendimiento del periodo</p>
+              <p
+                className={`mt-1 text-xl font-bold ${
+                  periodPerformance.netGain >= 0 ? 'text-emerald-300' : 'text-rose-300'
+                }`}
+              >
+                {periodPerformance.netGainPct !== null
+                  ? `${periodPerformance.netGainPct >= 0 ? '+' : ''}${periodPerformance.netGainPct.toFixed(2)}%`
+                  : 'N/D'}{' '}
+                <span className="text-base text-zinc-300 font-semibold">
+                  ({periodPerformance.netGain >= 0 ? '+' : ''}
+                  €{Math.abs(periodPerformance.netGain).toLocaleString('es-ES', { maximumFractionDigits: 2 })})
+                </span>
+              </p>
+              <p className="text-xs text-zinc-500 mt-2 leading-relaxed">
+                Excluye aportes netos de €
+                {periodPerformance.capitalChange.toLocaleString('es-ES', { maximumFractionDigits: 2 })}
+              </p>
+            </div>
+          ) : (
+            <div className="rounded-lg border border-zinc-700 bg-zinc-900/70 px-3 py-2 text-xs text-zinc-400">
+              Sin suficientes snapshots para calcular rendimiento del periodo.
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={timeRange}
+              onChange={(e) => setTimeRange(e.target.value)}
+              className="cursor-pointer bg-zinc-800 text-white border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="7d">Ultimos 7 dias</option>
+              <option value="30d">Ultimos 30 dias</option>
+              <option value="3m">Ultimos 3 meses</option>
+              <option value="1y">Ultimo año</option>
+              <option value="all">Desde inicio</option>
+              <option value="custom">Personalizado</option>
+            </select>
+
+            {timeRange === 'custom' && (
+              <>
+                <input
+                  type="date"
+                  value={customRange.from}
+                  onChange={(e) =>
+                    setCustomRange((prev) => ({
+                      ...prev,
+                      from: e.target.value,
+                    }))
+                  }
+                  className="bg-zinc-800 text-white border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <span className="text-zinc-500 text-sm">a</span>
+                <input
+                  type="date"
+                  value={customRange.to}
+                  onChange={(e) =>
+                    setCustomRange((prev) => ({
+                      ...prev,
+                      to: e.target.value,
+                    }))
+                  }
+                  className="bg-zinc-800 text-white border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowTransactionMarks((prev) => !prev)}
+            className="inline-flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900/70 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800 transition-colors"
+            aria-pressed={showTransactionMarks}
+            title={showTransactionMarks ? 'Ocultar burbujas de compra/venta' : 'Mostrar burbujas de compra/venta'}
+          >
+            <span className="relative inline-flex h-5 w-5 items-center justify-center">
+              <span className="h-3.5 w-3.5 rounded-full border-2 border-cyan-300" />
+              {!showTransactionMarks && (
+                <span className="absolute h-0.5 w-5 rotate-[-28deg] rounded bg-rose-400" />
+              )}
+            </span>
+            <span>{showTransactionMarks ? 'Burbujas activas' : 'Burbujas ocultas'}</span>
+          </button>
+        </div>
+
+        {isSeriesLoading && (
+          <div className="text-right text-xs text-cyan-300">Actualizando rango...</div>
+        )}
       </div>
       <div ref={chartRef} style={{ width: '100%', height: '400px' }} />
     </div>

@@ -5,6 +5,7 @@ import { createContext, useContext, useState, useCallback, useRef } from 'react'
 const CacheContext = createContext();
 
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
+const PROGRESSION_CACHE_DURATION = 15 * 60 * 1000; // 15 minutos
 
 export function CacheProvider({ children }) {
   const [cache, setCache] = useState({});
@@ -12,18 +13,23 @@ export function CacheProvider({ children }) {
 
   const getCachedData = useCallback((key) => {
     const cached = cache[key];
-    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+    if (!cached) return null;
+
+    const ttl = cached.ttl ?? CACHE_DURATION;
+    if (Date.now() - cached.timestamp < ttl) {
       return cached.data;
     }
+
     return null;
   }, [cache]);
 
-  const setCachedData = useCallback((key, data) => {
+  const setCachedData = useCallback((key, data, ttl = CACHE_DURATION) => {
     setCache(prev => ({
       ...prev,
       [key]: {
         data,
         timestamp: Date.now(),
+        ttl,
       },
     }));
 
@@ -35,7 +41,7 @@ export function CacheProvider({ children }) {
     // Configurar auto-invalidación después de CACHE_DURATION
     timersRef.current[key] = setTimeout(() => {
       invalidateCache(key);
-    }, CACHE_DURATION);
+    }, ttl);
   }, []);
 
   const invalidateCache = useCallback((key) => {
@@ -70,6 +76,7 @@ export function CacheProvider({ children }) {
     setCachedData,
     invalidateCache,
     invalidateAllDashboardData,
+    PROGRESSION_CACHE_DURATION,
   };
 
   return (

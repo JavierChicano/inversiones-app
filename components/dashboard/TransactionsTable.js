@@ -474,7 +474,7 @@ function SellModal({ transaction, onClose, onSuccess }) {
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors"
+              className="btn-secondary flex-1 rounded-lg"
             >
               Cancelar
             </button>
@@ -627,14 +627,14 @@ function EditModal({ transaction, onClose, onSuccess }) {
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors"
+              className="btn-secondary flex-1 rounded-lg"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 px-4 py-2 bg-primary hover:bg-indigo-600 text-white rounded-lg transition-colors disabled:opacity-50"
+              className="btn-primary flex-1 rounded-lg"
             >
               {loading ? 'Guardando...' : 'Guardar'}
             </button>
@@ -661,7 +661,7 @@ function DeleteConfirmModal({ transaction, onClose, onConfirm }) {
         <div className="flex gap-3">
           <button
             onClick={onClose}
-            className="flex-1 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors"
+            className="btn-secondary flex-1 rounded-lg"
           >
             Cancelar
           </button>

@@ -176,7 +176,7 @@ export default function AuthModal() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-primary text-primary-foreground py-2 rounded-md hover:bg-indigo-600 transition-colors disabled:bg-zinc-700 disabled:cursor-not-allowed font-medium"
+            className="btn-primary w-full rounded-md py-2 font-medium"
           >
             {loading ? 'Procesando...' : isLogin ? 'Iniciar Sesión' : 'Registrarse'}
           </button>

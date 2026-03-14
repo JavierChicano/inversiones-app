@@ -40,14 +40,13 @@ export default function NotFound() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <Link 
               href="/"
-              className="group relative px-8 py-4 bg-linear-to-r from-blue-500 to-purple-500 rounded-xl font-semibold text-white shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/40 transition-all duration-300 hover:scale-105"
+              className="btn-primary px-8 py-4 transition-all duration-300 hover:scale-105"
             >
               Volver al inicio
-              <span className="absolute inset-0 rounded-xl bg-white opacity-0 group-hover:opacity-10 transition-opacity" />
             </Link>
             <Link 
               href="/dashboard"
-              className="px-8 py-4 bg-zinc-800 border border-zinc-700 rounded-xl font-semibold text-zinc-300 hover:bg-zinc-700 hover:border-zinc-600 transition-all duration-300"
+              className="btn-secondary px-8 py-4 transition-all duration-300"
             >
               Ir al Dashboard
             </Link>
