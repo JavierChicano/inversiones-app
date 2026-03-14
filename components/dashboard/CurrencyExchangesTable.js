@@ -159,14 +159,12 @@ export default function CurrencyExchangesTable({ exchanges, onDelete, onEdit }) 
             exchanges.map((exchange) => {
               const isProfit = exchange.difference > 0;
               const isNearBreakeven = Math.abs(exchange.percentage) < 1;
-              const isGoodTarget = exchange.fromCurrency === 'EUR' 
-                ? exchange.currentRate <= exchange.breakEvenRate // EUR→USD: mejor si baja
-                : exchange.currentRate >= exchange.goodTargetRate; // USD→EUR: mejor si sube
+              const isGoodTarget = exchange.currentRate <= exchange.goodTargetRate;
               
               // Calcular el valor actual en la moneda original (para mostrar)
               const currentValueInOriginalCurrency = exchange.fromCurrency === 'EUR'
                 ? exchange.originalValue / exchange.currentRate // USD → EUR
-                : exchange.originalValue * exchange.currentRate; // EUR → USD
+                : exchange.originalValue / exchange.currentRate; // EUR → USD
 
               return (
                 <tr
