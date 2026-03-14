@@ -5,6 +5,7 @@ import * as echarts from 'echarts';
 import { useCache } from '@/context/CacheContext';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const inFlightProgressionRequests = new Map();
 
 function toInputDate(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
@@ -66,16 +67,17 @@ function formatCustomLabel(inputDate) {
   });
 }
 
-export default function ProgressionChart({ data, transactions = [], progressionMeta = null, exchangeRate = 1.1 }) {
+export default function ProgressionChart({ data, transactions = [], exchangeRate = 1.1 }) {
   const chartRef = useRef(null);
   const [timeRange, setTimeRange] = useState('30d'); // Por defecto 30 días
   const [customRange, setCustomRange] = useState({ from: '', to: '' });
   const [showTransactionMarks, setShowTransactionMarks] = useState(true);
   const [seriesData, setSeriesData] = useState(data || []);
   const [seriesTransactions, setSeriesTransactions] = useState(transactions || []);
-  const [queryMeta, setQueryMeta] = useState(progressionMeta);
   const [isSeriesLoading, setIsSeriesLoading] = useState(false);
   const { getCachedData, setCachedData, PROGRESSION_CACHE_DURATION } = useCache();
+  const customRangeQueryKey =
+    timeRange === 'custom' ? `${customRange.from || ''}|${customRange.to || ''}` : '';
 
   // Calcular tasa de conversión de USD a EUR
   const usdToEur = 1 / exchangeRate;
@@ -87,10 +89,6 @@ export default function ProgressionChart({ data, transactions = [], progressionM
   useEffect(() => {
     setSeriesTransactions(transactions || []);
   }, [transactions]);
-
-  useEffect(() => {
-    setQueryMeta(progressionMeta || null);
-  }, [progressionMeta]);
 
   useEffect(() => {
     if (!seriesData || seriesData.length === 0) return;
@@ -174,7 +172,6 @@ export default function ProgressionChart({ data, transactions = [], progressionM
     if (cached) {
       setSeriesData(cached.progression || []);
       setSeriesTransactions(cached.transactions || []);
-      setQueryMeta(cached.progressionMeta || null);
       return;
     }
 
@@ -183,20 +180,31 @@ export default function ProgressionChart({ data, transactions = [], progressionM
     const loadProgression = async () => {
       try {
         setIsSeriesLoading(true);
-        const response = await fetch(`/api/dashboard/stats?${params.toString()}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        let requestPromise = inFlightProgressionRequests.get(cacheKey);
+        if (!requestPromise) {
+          requestPromise = fetch(`/api/dashboard/stats?${params.toString()}`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          })
+            .then(async (response) => {
+              if (!response.ok) {
+                throw new Error('Error al cargar progresion por rango');
+              }
+              return response.json();
+            })
+            .finally(() => {
+              inFlightProgressionRequests.delete(cacheKey);
+            });
 
-        if (!response.ok) return;
+          inFlightProgressionRequests.set(cacheKey, requestPromise);
+        }
 
-        const payload = await response.json();
+        const payload = await requestPromise;
         if (isCancelled) return;
 
         setSeriesData(payload.progression || []);
         setSeriesTransactions(payload.transactions || []);
-        setQueryMeta(payload.progressionMeta || null);
         setCachedData(cacheKey, payload, PROGRESSION_CACHE_DURATION);
       } catch (error) {
         console.error('Error cargando progresion por rango:', error);
@@ -213,7 +221,7 @@ export default function ProgressionChart({ data, transactions = [], progressionM
       isCancelled = true;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeRange, customRange.from, customRange.to]);
+  }, [timeRange, customRangeQueryKey]);
 
   // Memoizar datos filtrados para evitar cambios en dependencias
   const filteredData = useMemo(() => {
@@ -253,8 +261,6 @@ export default function ProgressionChart({ data, transactions = [], progressionM
       };
     }
 
-    const firstDataDate = new Date(normalizedSnapshots[0].ts);
-    let rangeStart;
     let rangeEnd = new Date(now);
 
     const currentRangeLabel = {
@@ -266,47 +272,23 @@ export default function ProgressionChart({ data, transactions = [], progressionM
       custom: 'Personalizado',
     };
 
-    switch (timeRange) {
-      case '7d':
-        rangeStart = new Date(now.getTime() - 7 * DAY_MS);
-        break;
-      case '30d':
-        rangeStart = new Date(now.getTime() - 30 * DAY_MS);
-        break;
-      case '3m':
-        rangeStart = new Date(now.getTime() - 90 * DAY_MS);
-        break;
-      case '1y':
-        rangeStart = new Date(now.getTime() - 365 * DAY_MS);
-        break;
-      case 'all':
-        rangeStart = new Date(firstDataDate);
-        break;
-      case 'custom': {
-        const parsedFrom = parseInputDate(customRange.from);
-        const parsedTo = parseInputDate(customRange.to);
-        rangeStart = parsedFrom || new Date(firstDataDate);
-        rangeEnd = parsedTo || new Date(now);
-        break;
-      }
-      default:
-        rangeStart = new Date(now.getTime() - 30 * DAY_MS);
+    if (timeRange === 'custom') {
+      const parsedTo = parseInputDate(customRange.to);
+      rangeEnd = parsedTo || new Date(now);
     }
 
-    rangeStart.setHours(0, 0, 0, 0);
     rangeEnd.setHours(23, 59, 59, 999);
 
-    if (rangeStart > rangeEnd) {
-      const temp = rangeStart;
-      rangeStart = rangeEnd;
-      rangeEnd = temp;
-    }
-
-    const rangeStartTs = rangeStart.getTime();
-    const rangeEndTs = rangeEnd.getTime();
-    const spanDays = Math.max(1, Math.round((rangeEndTs - rangeStartTs) / DAY_MS));
-
-    const snapshotsInRange = normalizedSnapshots.filter((snapshot) => snapshot.ts >= rangeStartTs && snapshot.ts <= rangeEndTs);
+    const snapshotsInRange = normalizedSnapshots;
+    const spanDays =
+      snapshotsInRange.length > 1
+        ? Math.max(
+            1,
+            Math.round(
+              (snapshotsInRange[snapshotsInRange.length - 1].ts - snapshotsInRange[0].ts) / DAY_MS
+            )
+          )
+        : 1;
 
     if (snapshotsInRange.length === 0) {
       const rangeLabel =
@@ -655,16 +637,16 @@ export default function ProgressionChart({ data, transactions = [], progressionM
 
   const periodPerformance = filteredData.performance;
   return (
-    <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 h-full">
-      <div className="mb-4 flex flex-col gap-4">
-        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+    <div className="relative bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 h-full">
+      <div className="mb-2 flex flex-col gap-2">
+        <div className="flex flex-col gap-1 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h3 className="text-white text-lg font-semibold">Progresión del Portfolio</h3>
             <p className="text-xs text-zinc-400 mt-1">Periodo activo: {filteredData.rangeLabel}</p>
           </div>
 
           {periodPerformance ? (
-            <div className="min-w-65 rounded-xl border border-zinc-700 bg-zinc-900/80 px-4 py-3 text-sm">
+            <div className="min-w-65 rounded-xl border border-zinc-700 bg-zinc-900/80 px-3 py-2 text-sm">
               <p className="text-zinc-400 text-[11px] uppercase tracking-[0.16em]">Rendimiento del periodo</p>
               <p
                 className={`mt-1 text-xl font-bold ${
@@ -674,12 +656,12 @@ export default function ProgressionChart({ data, transactions = [], progressionM
                 {periodPerformance.netGainPct !== null
                   ? `${periodPerformance.netGainPct >= 0 ? '+' : ''}${periodPerformance.netGainPct.toFixed(2)}%`
                   : 'N/D'}{' '}
-                <span className="text-base text-zinc-300 font-semibold">
+                <span className="text-sm text-zinc-300 font-semibold">
                   ({periodPerformance.netGain >= 0 ? '+' : ''}
                   €{Math.abs(periodPerformance.netGain).toLocaleString('es-ES', { maximumFractionDigits: 2 })})
                 </span>
               </p>
-              <p className="text-xs text-zinc-500 mt-2 leading-relaxed">
+              <p className="text-xs text-zinc-500 mt-1 leading-relaxed">
                 Excluye aportes netos de €
                 {periodPerformance.capitalChange.toLocaleString('es-ES', { maximumFractionDigits: 2 })}
               </p>
@@ -691,12 +673,12 @@ export default function ProgressionChart({ data, transactions = [], progressionM
           )}
         </div>
 
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-wrap items-center gap-2">
             <select
               value={timeRange}
               onChange={(e) => setTimeRange(e.target.value)}
-              className="cursor-pointer bg-zinc-800 text-white border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="cursor-pointer bg-zinc-800 text-white border border-zinc-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="7d">Ultimos 7 dias</option>
               <option value="30d">Ultimos 30 dias</option>
@@ -717,7 +699,7 @@ export default function ProgressionChart({ data, transactions = [], progressionM
                       from: e.target.value,
                     }))
                   }
-                  className="bg-zinc-800 text-white border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="bg-zinc-800 text-white border border-zinc-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <span className="text-zinc-500 text-sm">a</span>
                 <input
@@ -729,7 +711,7 @@ export default function ProgressionChart({ data, transactions = [], progressionM
                       to: e.target.value,
                     }))
                   }
-                  className="bg-zinc-800 text-white border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="bg-zinc-800 text-white border border-zinc-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </>
             )}
@@ -738,7 +720,7 @@ export default function ProgressionChart({ data, transactions = [], progressionM
           <button
             type="button"
             onClick={() => setShowTransactionMarks((prev) => !prev)}
-            className="inline-flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900/70 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800 transition-colors"
+            className="inline-flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900/70 px-3 py-1.5 text-sm text-zinc-200 hover:bg-zinc-800 transition-colors"
             aria-pressed={showTransactionMarks}
             title={showTransactionMarks ? 'Ocultar burbujas de compra/venta' : 'Mostrar burbujas de compra/venta'}
           >
@@ -753,10 +735,12 @@ export default function ProgressionChart({ data, transactions = [], progressionM
         </div>
 
         {isSeriesLoading && (
-          <div className="text-right text-xs text-cyan-300">Actualizando rango...</div>
+          <div className="pointer-events-none absolute right-4 top-3 text-xs text-cyan-300">
+            Actualizando rango...
+          </div>
         )}
       </div>
-      <div ref={chartRef} style={{ width: '100%', height: '400px' }} />
+      <div ref={chartRef} style={{ width: '100%', height: '340px' }} />
     </div>
   );
 }
