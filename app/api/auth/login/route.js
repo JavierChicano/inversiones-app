@@ -31,7 +31,7 @@ export async function POST(request) {
       name: user.name,
     }, '7d');
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       token,
       user: {
@@ -42,6 +42,16 @@ export async function POST(request) {
       },
       message: 'Inicio de sesión exitoso',
     });
+
+    response.cookies.set('auth_token', token, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7,
+    });
+
+    return response;
   } catch (error) {
     console.error('Error en login:', error);
     return NextResponse.json(

@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 
 const AuthContext = createContext();
 
@@ -15,61 +15,47 @@ export function useAuth() {
 
 export function AuthProvider({ children }) {
   const router = useRouter();
-  const pathname = usePathname();
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Cargar token y verificarlo al iniciar
+  // Cargar estado de sesion persistido en cliente
   useEffect(() => {
     const storedToken = localStorage.getItem('auth_token');
-    if (storedToken) {
-      verifyAndLoadUser(storedToken);
-    } else {
-      setIsLoading(false);
-    }
-  }, []);
+    const storedUser = localStorage.getItem('auth_user');
 
-  // Verificar token y cargar usuario desde el servidor
-  const verifyAndLoadUser = async (authToken) => {
-    try {
-      const response = await fetch('/api/auth/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: authToken }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setUser(data.user);
-        setToken(authToken);
-      } else {
-        // Token inválido, limpiar
+    if (storedToken && storedUser) {
+      try {
+        setToken(storedToken);
+        setUser(JSON.parse(storedUser));
+      } catch {
         localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_user');
         setToken(null);
         setUser(null);
       }
-    } catch (error) {
-      console.error('Error al verificar token:', error);
-      localStorage.removeItem('auth_token');
-      setToken(null);
-      setUser(null);
-    } finally {
-      setIsLoading(false);
     }
-  };
+
+    setIsLoading(false);
+  }, []);
 
   const login = (userData, authToken) => {
     setUser(userData);
     setToken(authToken);
     localStorage.setItem('auth_token', authToken);
+    localStorage.setItem('auth_user', JSON.stringify(userData));
   };
 
   const logout = () => {
+    fetch('/api/auth/logout', { method: 'POST' }).catch(() => {
+      // Si falla la llamada, igual se limpia el estado local.
+    });
+
     setUser(null);
     setToken(null);
     localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_user');
     // Redirigir al home sin abrir el modal
     router.push('/');
   };
