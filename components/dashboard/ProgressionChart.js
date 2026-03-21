@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import * as echarts from 'echarts';
 import { useCache } from '@/context/CacheContext';
+import ProgressionChartSkeleton from '@/components/dashboard/ProgressionChartSkeleton';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const inFlightProgressionRequests = new Map();
@@ -172,14 +173,19 @@ export default function ProgressionChart({ data, transactions = [], exchangeRate
     if (cached) {
       setSeriesData(cached.progression || []);
       setSeriesTransactions(cached.transactions || []);
+      setIsSeriesLoading(false);
       return;
     }
 
     let isCancelled = false;
 
+    // Evitar mostrar temporalmente el grafico del intervalo anterior
+    setSeriesData([]);
+    setSeriesTransactions([]);
+    setIsSeriesLoading(true);
+
     const loadProgression = async () => {
       try {
-        setIsSeriesLoading(true);
         let requestPromise = inFlightProgressionRequests.get(cacheKey);
         if (!requestPromise) {
           requestPromise = fetch(`/api/dashboard/stats?${params.toString()}`, {
@@ -734,13 +740,12 @@ export default function ProgressionChart({ data, transactions = [], exchangeRate
           </button>
         </div>
 
-        {isSeriesLoading && (
-          <div className="pointer-events-none absolute right-4 top-3 text-xs text-cyan-300">
-            Actualizando rango...
-          </div>
-        )}
       </div>
-      <div ref={chartRef} style={{ width: '100%', height: '340px' }} />
+      {isSeriesLoading ? (
+        <ProgressionChartSkeleton />
+      ) : (
+        <div ref={chartRef} style={{ width: '100%', height: '340px' }} />
+      )}
     </div>
   );
 }

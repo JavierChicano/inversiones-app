@@ -3,8 +3,6 @@ Refinar tabla divisas para cuando se pasa de USD - EUR
 
 En analisis un IN (invertido) - OUT (sacado)
 
-Cuando se selecciona un rango mayor al que tenemos fechas se carga ese rango y luego se corrige, visualmente provoca una doble recarga fea -> progresionChart y modificar donde aparece el cargando datos, (arriba izquierda se ve mal)
-
 -----------------------------------------------------------
 Hacer la relase tag de Version base
 
