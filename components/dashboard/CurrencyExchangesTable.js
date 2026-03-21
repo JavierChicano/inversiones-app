@@ -5,7 +5,6 @@ export default function CurrencyExchangesTable({ exchanges, onDelete, onEdit }) 
   const [openMenuId, setOpenMenuId] = useState(null);
   const menuRef = useRef(null);
 
-  // Cerrar menú al hacer clic fuera
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
@@ -14,18 +13,18 @@ export default function CurrencyExchangesTable({ exchanges, onDelete, onEdit }) 
     };
 
     if (openMenuId !== null) {
-      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener("mousedown", handleClickOutside);
     }
 
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [openMenuId]);
 
   const formatCurrency = (value, currency) => {
     return new Intl.NumberFormat("es-ES", {
       style: "currency",
-      currency: currency,
+      currency,
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(value);
@@ -48,13 +47,26 @@ export default function CurrencyExchangesTable({ exchanges, onDelete, onEdit }) 
     return (
       <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
         <h3 className="text-white text-lg font-semibold mb-4">Cambios de Divisa</h3>
-        <p className="text-zinc-400 text-center py-8">
-          No hay cambios de divisa registrados
-        </p>
+        <p className="text-zinc-400 text-center py-8">No hay cambios de divisa</p>
       </div>
     );
   }
 
+  const eurToUsdExchanges = exchanges.filter((ex) => ex.fromCurrency === "EUR");
+
+  // Totales de abiertas (solo EUR->USD)
+  const totalAmount = eurToUsdExchanges.reduce((sum, ex) => sum + ex.amount, 0);
+  const totalDifference = eurToUsdExchanges.reduce((sum, ex) => sum + ex.difference, 0);
+  const weightedRateSum = eurToUsdExchanges.reduce((sum, ex) => {
+    return sum + ex.exchangeRate * ex.amount;
+  }, 0);
+  const avgRate = totalAmount > 0 ? weightedRateSum / totalAmount : 0;
+  const totalCurrentValue = eurToUsdExchanges.reduce((sum, ex) => {
+    return sum + ex.originalValue / ex.currentRate;
+  }, 0);
+  const currentRate = eurToUsdExchanges.length > 0 ? eurToUsdExchanges[0].currentRate : 0;
+
+  // Total global (EUR->USD + USD->EUR) normalizado a base EUR
   return (
     <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
       <h3 className="text-white text-lg font-semibold mb-4">Cambios de Divisa</h3>
@@ -62,127 +74,78 @@ export default function CurrencyExchangesTable({ exchanges, onDelete, onEdit }) 
         <table className="w-full">
           <thead>
             <tr className="border-b border-zinc-800">
-              <th className="text-left py-3 px-4 text-zinc-400 font-medium text-sm">
-                Fecha
-              </th>
-              <th className="text-left py-3 px-4 text-zinc-400 font-medium text-sm">
-                Cambio
-              </th>
-              <th className="text-center py-3 px-4 text-zinc-400 font-medium text-sm">
-                Cantidad
-              </th>
-              <th className="text-center py-3 px-4 text-zinc-400 font-medium text-sm">
-                Tipo Original
-              </th>
-              <th className="text-center py-3 px-4 text-zinc-400 font-medium text-sm">
-                Tipo Actual
-              </th>
-              <th className="text-right py-3 px-4 text-zinc-400 font-medium text-sm">
-                Valor Actual
-              </th>
-              <th className="text-right py-3 px-4 text-zinc-400 font-medium text-sm">
-                Ganancia/Pérdida
-              </th>
-              <th className="text-center py-3 px-4 text-zinc-400 font-medium text-sm">
-                Acciones
-              </th>
+              <th className="text-left py-3 px-4 text-zinc-400 font-medium text-sm">Fecha</th>
+              <th className="text-left py-3 px-4 text-zinc-400 font-medium text-sm">Cambio</th>
+              <th className="text-center py-3 px-4 text-zinc-400 font-medium text-sm">Cantidad</th>
+              <th className="text-center py-3 px-4 text-zinc-400 font-medium text-sm">Tipo Original</th>
+              <th className="text-center py-3 px-4 text-zinc-400 font-medium text-sm">Tipo Actual</th>
+              <th className="text-right py-3 px-4 text-zinc-400 font-medium text-sm">Valor Actual</th>
+              <th className="text-right py-3 px-4 text-zinc-400 font-medium text-sm">Ganancia/Perdida</th>
+              <th className="text-center py-3 px-4 text-zinc-400 font-medium text-sm">Acciones</th>
             </tr>
           </thead>
           <tbody>
-            {(() => {
-              // Calcular totales para la fila de resumen
-              const totalAmount = exchanges.reduce((sum, ex) => sum + (ex.fromCurrency === 'EUR' ? ex.amount : 0), 0);
-              const totalDifference = exchanges.reduce((sum, ex) => sum + ex.difference, 0);
-              const weightedRateSum = exchanges.reduce((sum, ex) => {
-                return sum + (ex.fromCurrency === 'EUR' ? ex.exchangeRate * ex.amount : 0);
-              }, 0);
-              const avgRate = totalAmount > 0 ? weightedRateSum / totalAmount : 0;
-              const totalCurrentValue = exchanges.reduce((sum, ex) => {
-                if (ex.fromCurrency === 'EUR') {
-                  return sum + (ex.originalValue / ex.currentRate);
-                }
-                return sum;
-              }, 0);
-              // Obtener el tipo actual (será el mismo para todas)
-              const currentRate = exchanges.length > 0 ? exchanges[0].currentRate : 0;
+            {eurToUsdExchanges.length > 0 && (
+              <tr className="bg-zinc-800/50 border-b-2 border-zinc-700 font-semibold">
+                <td className="py-4 px-4 text-white text-sm">TOTAL ABIERTAS</td>
+                <td className="py-4 px-4 text-left text-zinc-400 text-sm">-</td>
+                <td className="py-4 px-4 text-center text-white font-bold text-sm">
+                  {formatCurrency(totalAmount, "EUR")}
+                </td>
+                <td className="py-4 px-4 text-center text-yellow-500 font-bold text-sm">
+                  {avgRate > 0 ? avgRate.toFixed(4) : "-"}
+                </td>
+                <td className="py-4 px-4 text-center text-purple-400 font-bold text-sm">
+                  {currentRate > 0 ? currentRate.toFixed(4) : "-"}
+                </td>
+                <td className="py-4 px-4 text-right font-bold text-white text-sm">
+                  {formatCurrency(totalCurrentValue, "EUR")}
+                </td>
+                <td className="py-4 px-4 text-right text-sm">
+                  <div className="flex flex-col items-end gap-1">
+                    <span className={`text-lg font-bold ${totalDifference >= 0 ? "text-green-400" : "text-red-400"}`}>
+                      {totalAmount > 0 ? formatPercentage((totalDifference / totalAmount) * 100) : "-"}
+                    </span>
+                    <span className={`text-xs ${totalDifference >= 0 ? "text-green-300" : "text-red-300"}`}>
+                      {formatCurrency(Math.abs(totalDifference), "EUR")}
+                    </span>
+                  </div>
+                </td>
+                <td className="py-4 px-4 text-center text-zinc-400 text-sm">-</td>
+              </tr>
+            )}
 
-              return (
-                <>
-                  {/* Fila de totales */}
-                  <tr className="bg-zinc-800/50 border-b-2 border-zinc-700 font-semibold">
-                    <td className="py-4 px-4 text-white text-sm">
-                      TOTAL
-                    </td>
-                    <td className="py-4 px-4 text-left text-zinc-400 text-sm">
-                      —
-                    </td>
-                    <td className="py-4 px-4 text-center text-white font-bold text-sm">
-                      {formatCurrency(totalAmount, 'EUR')}
-                    </td>
-                    <td className="py-4 px-4 text-center text-yellow-500 font-bold text-sm">
-                      {avgRate > 0 ? avgRate.toFixed(4) : '—'}
-                    </td>
-                    <td className="py-4 px-4 text-center text-purple-400 font-bold text-sm">
-                      {currentRate > 0 ? currentRate.toFixed(4) : '—'}
-                    </td>
-                    <td className="py-4 px-4 text-right font-bold text-white text-sm">
-                      {formatCurrency(totalCurrentValue, 'EUR')}
-                    </td>
-                    <td className="py-4 px-4 text-right text-sm">
-                      <div className="flex flex-col items-end gap-1">
-                        <span
-                          className={`text-lg font-bold ${
-                            totalDifference >= 0
-                              ? "text-blue-400"
-                              : "text-orange-400"
-                          }`}
-                        >
-                          {totalAmount > 0 ? formatPercentage((totalDifference / totalAmount) * 100) : '—'}
-                        </span>
-                        <span
-                          className={`text-xs ${
-                            totalDifference >= 0
-                              ? "text-blue-300"
-                              : "text-orange-300"
-                          }`}
-                        >
-                          {formatCurrency(Math.abs(totalDifference), 'EUR')}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="py-4 px-4 text-center text-zinc-400 text-sm">
-                      —
-                    </td>
-                  </tr>
-                  {/* Filas individuales */}
-                  {
-            exchanges.map((exchange) => {
+            {exchanges.map((exchange) => {
+              const isRealized = exchange.fromCurrency === "USD";
               const isProfit = exchange.difference > 0;
-              const isNearBreakeven = Math.abs(exchange.percentage) < 1;
-              const isGoodTarget = exchange.currentRate <= exchange.goodTargetRate;
-              
-              // Calcular el valor actual en la moneda original (para mostrar)
-              const currentValueInOriginalCurrency = exchange.fromCurrency === 'EUR'
-                ? exchange.originalValue / exchange.currentRate // USD → EUR
-                : exchange.originalValue / exchange.currentRate; // EUR → USD
+              const currentValueDisplay = isRealized
+                ? exchange.amount * exchange.exchangeRate
+                : exchange.originalValue / exchange.currentRate;
 
               return (
                 <tr
                   key={exchange.id}
-                  className="border-b border-zinc-800/50 hover:bg-zinc-800/30 transition-colors"
+                  className={`border-b border-zinc-800/50 hover:bg-zinc-800/30 transition-colors ${
+                    isRealized ? "opacity-75" : ""
+                  }`}
                 >
-                  <td className="py-4 px-4 text-white text-sm">
-                    {formatDate(exchange.date)}
-                  </td>
+                  <td className="py-4 px-4 text-white text-sm">{formatDate(exchange.date)}</td>
                   <td className="py-4 px-4">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-white">
-                        {exchange.fromCurrency}
-                      </span>
-                      <span className="text-zinc-500">→</span>
-                      <span className="font-semibold text-white">
-                        {exchange.toCurrency}
-                      </span>
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2">
+                        <span className={`font-semibold ${isRealized ? "text-orange-400" : "text-white"}`}>
+                          {exchange.fromCurrency}
+                        </span>
+                        <span className="text-zinc-500">→</span>
+                        <span className={`font-semibold ${isRealized ? "text-orange-400" : "text-white"}`}>
+                          {exchange.toCurrency}
+                        </span>
+                      </div>
+                      {isRealized && (
+                        <span className="px-2 py-1 bg-orange-500/20 text-orange-400 text-xs font-semibold rounded border border-orange-500/50">
+                          REALIZADA
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td className="py-4 px-4 text-center text-white font-medium text-sm">
@@ -191,35 +154,25 @@ export default function CurrencyExchangesTable({ exchanges, onDelete, onEdit }) 
                   <td className="py-4 px-4 text-center text-yellow-500 font-semibold text-sm">
                     {exchange.exchangeRate.toFixed(4)}
                   </td>
-                  <td className="py-4 px-4 text-center text-sm">
-                    <span className={isGoodTarget ? 'text-green-500 font-medium' : 'text-zinc-300'}>
-                      {exchange.currentRate.toFixed(4)}
-                    </span>
+                  <td className="py-4 px-4 text-center text-purple-300 font-medium text-sm">
+                    {isRealized ? "-" : exchange.currentRate.toFixed(4)}
                   </td>
                   <td className="py-4 px-4 text-right font-semibold text-white text-sm">
-                    {formatCurrency(currentValueInOriginalCurrency, exchange.fromCurrency)}
+                    {formatCurrency(currentValueDisplay, "EUR")}
                   </td>
                   <td className="py-4 px-4 text-right text-sm">
-                    <div className="flex flex-col items-end gap-1">
-                      <span
-                        className={`text-lg font-bold ${
-                          isProfit
-                            ? "text-green-500"
-                            : "text-red-500"
-                        }`}
-                      >
-                        {formatPercentage(exchange.percentage)}
-                      </span>
-                      <span
-                        className={`text-xs ${
-                          isProfit
-                            ? "text-green-400"
-                            : "text-red-400"
-                        }`}
-                      >
-                        {formatCurrency(Math.abs(exchange.difference), exchange.fromCurrency)}
-                      </span>
-                    </div>
+                    {isRealized ? (
+                      <span className="text-xs text-zinc-400">Sin calculo (cerrada)</span>
+                    ) : (
+                      <div className="flex flex-col items-end gap-1">
+                        <span className={`text-lg font-bold ${isProfit ? "text-green-400" : "text-red-400"}`}>
+                          {formatPercentage(exchange.percentage)}
+                        </span>
+                        <span className={`text-xs ${isProfit ? "text-green-300" : "text-red-300"}`}>
+                          {formatCurrency(Math.abs(exchange.difference), "EUR")}
+                        </span>
+                      </div>
+                    )}
                   </td>
                   <td className="py-4 px-4 text-center relative">
                     <div ref={openMenuId === exchange.id ? menuRef : null}>
@@ -264,11 +217,8 @@ export default function CurrencyExchangesTable({ exchanges, onDelete, onEdit }) 
                   </td>
                 </tr>
               );
-            })
-          }
-                </>
-              );
-            })()}
+            })}
+
           </tbody>
         </table>
       </div>

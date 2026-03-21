@@ -123,50 +123,70 @@ export default function DivisasPage() {
 
       {/* Stats Cards */}
       {summary && currentRates && (() => {
-        // Calcular NETO total
-        const totalNetGain = exchanges.reduce((sum, exchange) => sum + exchange.difference, 0);
-        const totalInvested = exchanges.reduce((sum, exchange) => {
-          return sum + (exchange.fromCurrency === 'EUR' ? exchange.amount : 0);
-        }, 0);
+        // Calcular NETO total (solo EUR→USD abiertos)
+        const eurToUsdExchanges = exchanges.filter(e => e.fromCurrency === 'EUR');
+        const totalNetGain = eurToUsdExchanges.reduce((sum, exchange) => sum + exchange.difference, 0);
+        const totalInvested = eurToUsdExchanges.reduce((sum, exchange) => sum + exchange.amount, 0);
         const netPercentage = totalInvested > 0 ? (totalNetGain / totalInvested) * 100 : 0;
+        
+        // Calcular balance de divisas
+        // Dinero invertido: EUR que se convirtieron a USD
+        const moneyInvested = exchanges
+          .filter(e => e.fromCurrency === 'EUR')
+          .reduce((sum, e) => sum + e.amount, 0);
+        
+        // Dinero retirado: USD convertidos a EUR usando el tipo histórico de cada transacción
+        const moneyWithdrawnInEur = exchanges
+          .filter(e => e.fromCurrency === 'USD')
+          .reduce((sum, e) => sum + (e.amount * e.exchangeRate), 0);
+
+        const totalOperations = summary.eurToUsd.count + summary.usdToEur.count;
 
         return (
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <StatsCard
-              title="NETO"
-              value={`${totalNetGain >= 0 ? '+' : ''}${totalNetGain.toFixed(2)} €`}
-              subValue={`${netPercentage >= 0 ? '+' : ''}${netPercentage.toFixed(2)}%`}
-              icon={<CurrencyIcon className="w-5 h-5" />}
-              color={totalNetGain >= 0 ? "green" : "red"}
-            />
-            <StatsCard
-              title="Total de Cambios"
-              value={summary.totalExchanges}
-              icon={<CurrencyIcon className="w-5 h-5" />}
-              color="purple"
-            />
-            <StatsCard
-              title="EUR → USD"
-              value={`${summary.eurToUsd.count} operaciones`}
-              subValue={`${summary.eurToUsd.totalAmountEur.toFixed(2)} EUR cambiados`}
-              icon={<CurrencyIcon className="w-5 h-5" />}
-              color="green"
-            />
-            <StatsCard
-              title="USD → EUR"
-              value={`${summary.usdToEur.count} operaciones`}
-              subValue={`${summary.usdToEur.totalAmountUsd.toFixed(2)} USD cambiados`}
-              icon={<CurrencyIcon className="w-5 h-5" />}
-              color="orange"
-            />
-            <StatsCard
-              title="Tipo Actual EUR/USD"
-              value={currentRates.eurToUsd.toFixed(4)}
-              subValue={`USD/EUR: ${currentRates.usdToEur.toFixed(4)}`}
-              icon={<CurrencyIcon className="w-5 h-5" />}
-              color="blue"
-            />
-          </div>
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+              <StatsCard
+                title="NETO"
+                value={`${totalNetGain >= 0 ? '+' : ''}${totalNetGain.toFixed(2)} €`}
+                subValue={`${netPercentage >= 0 ? '+' : ''}${netPercentage.toFixed(2)}%`}
+                icon={<CurrencyIcon className="w-5 h-5" />}
+                color={totalNetGain >= 0 ? "green" : "red"}
+                valueClassName={totalNetGain >= 0 ? "text-green-400" : "text-red-400"}
+              />
+              <StatsCard
+                title="Operaciones"
+                value={`${totalOperations} operaciones`}
+                subValue={`${summary.eurToUsd.count} EUR→USD · ${summary.usdToEur.count} USD→EUR`}
+                icon={<CurrencyIcon className="w-5 h-5" />}
+                color="green"
+              />
+              <StatsCard
+                title="Tipo Actual EUR/USD"
+                value={currentRates.eurToUsd.toFixed(4)}
+                subValue={`USD/EUR: ${currentRates.usdToEur.toFixed(4)}`}
+                icon={<CurrencyIcon className="w-5 h-5" />}
+                color="blue"
+              />
+
+              <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 xl:col-span-2">
+                <h3 className="text-zinc-400 text-sm font-medium mb-4">Balance Divisas</h3>
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <div className="text-zinc-400 text-sm font-medium mb-2">📥 Invertido</div>
+                    <div className="text-2xl lg:text-3xl font-bold text-blue-400">
+                      {moneyInvested.toFixed(2)} €
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-zinc-400 text-sm font-medium mb-2">📤 Retirado</div>
+                    <div className="text-2xl lg:text-3xl font-bold text-orange-400">
+                      {moneyWithdrawnInEur.toFixed(2)} €
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
         );
       })()}
 

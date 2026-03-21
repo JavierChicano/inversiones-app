@@ -23,12 +23,18 @@ export async function GET(request) {
     const exchanges = await CurrencyExchangeRepository.getByUserId(decoded.userId);
 
     // Enriquecer con datos actuales
-    const currentRate = await CurrencyExchangeService.getCurrentExchangeRate('EUR', 'USD');
+    const currentRateEurUsd = await CurrencyExchangeService.getCurrentExchangeRate('EUR', 'USD');
     const enrichedExchanges = exchanges.map(exchange => {
+      // Para EUR→USD, usamos currentRate como EUR/USD
+      // Para USD→EUR, usamos currentRate como USD/EUR (que es 1/EUR/USD)
+      const currentRateForExchange = exchange.fromCurrency === 'EUR' 
+        ? currentRateEurUsd 
+        : 1 / currentRateEurUsd;
+      
       const profitLoss = CurrencyExchangeService.calculateProfitLoss(
         exchange.amount,
         exchange.exchangeRate,
-        exchange.fromCurrency === 'EUR' ? currentRate : 1/currentRate,
+        currentRateForExchange,
         exchange.fromCurrency
       );
 
@@ -46,7 +52,7 @@ export async function GET(request) {
 
       return {
         ...exchange,
-        currentRate: exchange.fromCurrency === 'EUR' ? currentRate : 1/currentRate,
+        currentRate: currentRateForExchange,
         ...profitLoss,
         breakEvenRate,
         goodTargetRate,
@@ -61,8 +67,8 @@ export async function GET(request) {
       exchanges: enrichedExchanges,
       summary,
       currentRate: {
-        eurToUsd: currentRate,
-        usdToEur: 1/currentRate,
+        eurToUsd: currentRateEurUsd,
+        usdToEur: 1/currentRateEurUsd,
       },
     });
   } catch (error) {
