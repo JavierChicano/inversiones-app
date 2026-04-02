@@ -23,27 +23,6 @@ export function CacheProvider({ children }) {
     return null;
   }, [cache]);
 
-  const setCachedData = useCallback((key, data, ttl = CACHE_DURATION) => {
-    setCache(prev => ({
-      ...prev,
-      [key]: {
-        data,
-        timestamp: Date.now(),
-        ttl,
-      },
-    }));
-
-    // Limpiar el temporizador anterior si existe
-    if (timersRef.current[key]) {
-      clearTimeout(timersRef.current[key]);
-    }
-
-    // Configurar auto-invalidación después de CACHE_DURATION
-    timersRef.current[key] = setTimeout(() => {
-      invalidateCache(key);
-    }, ttl);
-  }, []);
-
   const invalidateCache = useCallback((key) => {
     if (key) {
       // Invalidar una clave específica
@@ -65,9 +44,30 @@ export function CacheProvider({ children }) {
     }
   }, []);
 
+  const setCachedData = useCallback((key, data, ttl = CACHE_DURATION) => {
+    setCache(prev => ({
+      ...prev,
+      [key]: {
+        data,
+        timestamp: Date.now(),
+        ttl,
+      },
+    }));
+
+    // Limpiar el temporizador anterior si existe
+    if (timersRef.current[key]) {
+      clearTimeout(timersRef.current[key]);
+    }
+
+    // Configurar auto-invalidación después de CACHE_DURATION
+    timersRef.current[key] = setTimeout(() => {
+      invalidateCache(key);
+    }, ttl);
+  }, [invalidateCache]);
+
   const invalidateAllDashboardData = useCallback(() => {
     // Invalidar todas las claves relacionadas con el dashboard
-    const dashboardKeys = ['dashboard-stats', 'transactions', 'portfolio-positions'];
+    const dashboardKeys = ['dashboard-stats', 'transactions', 'portfolio-positions', 'staking-hub'];
     dashboardKeys.forEach(key => invalidateCache(key));
   }, [invalidateCache]);
 

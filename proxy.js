@@ -10,11 +10,10 @@ export async function proxy(request) {
   try {
     const verifyUrl = new URL('/api/auth/verify', request.url);
     const verifyResponse = await fetch(verifyUrl, {
-      method: 'POST',
+      method: 'GET',
       headers: {
-        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ token }),
       cache: 'no-store',
     });
 

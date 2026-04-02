@@ -7,7 +7,7 @@ import { EyeIcon, EyeOffIcon } from './icons';
 
 export default function AuthModal() {
   const router = useRouter();
-  const { isAuthModalOpen, closeAuthModal, login, register } = useAuth();
+  const { isAuthModalOpen, closeAuthModal, login } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -52,7 +52,8 @@ export default function AuthModal() {
       resetForm();
       closeAuthModal();
       // Redirigir al dashboard
-      router.push('/dashboard');
+      router.replace('/dashboard');
+      router.refresh();
     } catch (err) {
       // Manejo mejorado de errores
       if (err.name === 'SyntaxError') {

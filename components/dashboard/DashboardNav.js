@@ -14,6 +14,7 @@ import {
   WalletGrowthIcon,
   WatchlistIcon,
   CurrencyIcon,
+  CoinStackIcon,
 } from "../icons";
 
 export default function DashboardNav() {
@@ -72,6 +73,12 @@ export default function DashboardNav() {
       name: "Divisas",
       href: "/dashboard/divisas",
       icon: <CurrencyIcon className="w-5 h-5" />,
+    },
+    {
+      id: "staking",
+      name: "Staking Hub",
+      href: "/dashboard/staking",
+      icon: <CoinStackIcon className="w-5 h-5" />,
     },
     {
       id: "analytics",
