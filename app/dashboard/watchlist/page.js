@@ -142,56 +142,90 @@ export default function PortfolioPage() {
 
   const targetsReached = watchlist.filter((item) => item.targetReached).length;
   const totalTracking = watchlist.length;
+  const successRate =
+    totalTracking > 0 ? ((targetsReached / totalTracking) * 100).toFixed(1) : 0;
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-white mb-2">Watchlist</h2>
-            <p className="text-zinc-400">
+        <section className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-linear-to-br from-zinc-900/90 via-zinc-950 to-zinc-900/70 p-6 sm:p-7">
+          <div className="pointer-events-none absolute -right-24 -top-24 h-56 w-56 rounded-full bg-blue-500/20 blur-3xl" />
+          <div className="pointer-events-none absolute -left-20 -bottom-20 h-56 w-56 rounded-full bg-cyan-500/10 blur-3xl" />
+
+          <div className="relative flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">
+                Radar de oportunidades
+              </p>
+              <h2 className="mt-1 text-3xl font-semibold text-white">Watchlist</h2>
+              <p className="mt-2 text-zinc-400 max-w-2xl">
               Sigue activos que te interesan y establece objetivos de precio
-            </p>
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+              <button
+                onClick={fetchWatchlist}
+                className="px-4 py-2 rounded-xl border border-zinc-700 bg-zinc-900/80 text-zinc-200 hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2"
+              >
+                <RefreshIcon className="w-4 h-4" />
+                Actualizar
+              </button>
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="px-4 py-2 rounded-xl bg-linear-to-r from-blue-600 to-cyan-500 text-white hover:from-blue-500 hover:to-cyan-400 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-cyan-900/30"
+              >
+                <PlusIcon className="w-4 h-4" />
+                Añadir Asset
+              </button>
+            </div>
           </div>
-          <div className="flex gap-3">
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-            >
-              <PlusIcon className="w-4 h-4" />
-              Añadir Asset
-            </button>
-          </div>
-        </div>
+        </section>
 
         {/* Stats */}
-        {watchlist.length > 0 && (
+        {watchlist.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
-              <p className="text-sm text-zinc-400 mb-1">Total Siguiendo</p>
-              <p className="text-2xl font-bold text-white">{totalTracking}</p>
+            <div className="relative overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/70 p-5">
+              <div className="absolute -right-5 -top-5 h-16 w-16 rounded-full bg-blue-500/20 blur-2xl" />
+              <p className="text-sm text-zinc-400">Total Siguiendo</p>
+              <p className="mt-2 text-3xl font-semibold text-white">{totalTracking}</p>
+              <p className="mt-2 text-xs text-zinc-500">Activos monitorizados</p>
             </div>
-            <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
-              <p className="text-sm text-zinc-400 mb-1">Objetivos Alcanzados</p>
-              <p className="text-2xl font-bold text-green-500">
-                {targetsReached}
-              </p>
+
+            <div className="relative overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/70 p-5">
+              <div className="absolute -right-5 -top-5 h-16 w-16 rounded-full bg-emerald-500/20 blur-2xl" />
+              <p className="text-sm text-zinc-400">Objetivos Alcanzados</p>
+              <p className="mt-2 text-3xl font-semibold text-emerald-400">{targetsReached}</p>
+              <p className="mt-2 text-xs text-zinc-500">Señales confirmadas</p>
             </div>
-            <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
-              <p className="text-sm text-zinc-400 mb-1">Porcentaje Éxito</p>
-              <p className="text-2xl font-bold text-blue-500">
-                {totalTracking > 0
-                  ? ((targetsReached / totalTracking) * 100).toFixed(1)
-                  : 0}
-                %
-              </p>
+
+            <div className="relative overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/70 p-5">
+              <div className="absolute -right-5 -top-5 h-16 w-16 rounded-full bg-cyan-500/20 blur-2xl" />
+              <p className="text-sm text-zinc-400">Porcentaje Éxito</p>
+              <p className="mt-2 text-3xl font-semibold text-cyan-400">{successRate}%</p>
+              <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">
+                <div
+                  className="h-full rounded-full bg-linear-to-r from-cyan-500 to-blue-500"
+                  style={{ width: `${Math.min(Number(successRate), 100)}%` }}
+                />
+              </div>
             </div>
+          </div>
+        ) : (
+          <div className="rounded-xl border border-dashed border-zinc-800 bg-zinc-900/40 p-5 text-sm text-zinc-400">
+            Empieza creando tu primer activo en watchlist para ver métricas de seguimiento.
           </div>
         )}
 
         {/* Watchlist Table */}
-        <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900/50">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-zinc-800 px-5 py-4 bg-zinc-950/40">
+            <div>
+              <h3 className="text-sm font-semibold text-zinc-200">Activos en seguimiento</h3>
+              <p className="text-xs text-zinc-500">{totalTracking} activos listados</p>
+            </div>
+          </div>
           {isLoading ? (
             <div className="text-center py-12 text-zinc-400">
               Cargando watchlist...

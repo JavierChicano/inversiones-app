@@ -60,7 +60,7 @@ export default function WatchlistTable({ watchlist, onDelete, onEdit }) {
 
   const formatPercentage = (value) => {
     if (value === null || value === undefined) return '-';
-    const color = value >= 0 ? 'text-green-500' : 'text-red-500';
+    const color = value >= 0 ? 'text-emerald-400' : 'text-rose-400';
     return (
       <span className={color}>
         {value >= 0 ? '+' : ''}{value.toFixed(2)}%
@@ -68,19 +68,28 @@ export default function WatchlistTable({ watchlist, onDelete, onEdit }) {
     );
   };
 
+  const getTargetProgress = (item) => {
+    if (!item.targetPrice || item.currentPrice === null || item.currentPrice === undefined) {
+      return null;
+    }
+
+    const ratio = (item.currentPrice / item.targetPrice) * 100;
+    return Math.min(Math.max(ratio, 0), 100);
+  };
+
   return (
     <>
-      <div className="overflow-x-auto">
+      <div>
         <table className="w-full">
           <thead>
             <tr className="border-b border-zinc-800">
-              <th className="text-center text-sm font-medium text-zinc-400 pb-3 px-4">Ticker</th>
-              <th className="text-center text-sm font-medium text-zinc-400 pb-3 px-4">Tipo</th>
-              <th className="text-center text-sm font-medium text-zinc-400 pb-3 px-4">Precio Actual</th>
-              <th className="text-center text-sm font-medium text-zinc-400 pb-3 px-4">Precio Objetivo</th>
-              <th className="text-center text-sm font-medium text-zinc-400 pb-3 px-4">% vs Objetivo</th>
-              <th className="text-center text-sm font-medium text-zinc-400 pb-3 px-4">Notas</th>
-              <th className="text-center text-sm font-medium text-zinc-400 pb-3 px-4">Acciones</th>
+              <th className="text-center text-xs uppercase tracking-wide font-medium text-zinc-500 py-3 px-4">Ticker</th>
+              <th className="text-center text-xs uppercase tracking-wide font-medium text-zinc-500 py-3 px-4">Tipo</th>
+              <th className="text-center text-xs uppercase tracking-wide font-medium text-zinc-500 py-3 px-4">Precio Actual</th>
+              <th className="text-center text-xs uppercase tracking-wide font-medium text-zinc-500 py-3 px-4">Precio Objetivo</th>
+              <th className="text-center text-xs uppercase tracking-wide font-medium text-zinc-500 py-3 px-4">Progreso</th>
+              <th className="text-center text-xs uppercase tracking-wide font-medium text-zinc-500 py-3 px-4">Notas</th>
+              <th className="text-center text-xs uppercase tracking-wide font-medium text-zinc-500 py-3 px-4">Acciones</th>
             </tr>
           </thead>
         <tbody>
@@ -92,12 +101,12 @@ export default function WatchlistTable({ watchlist, onDelete, onEdit }) {
             </tr>
           ) : (
             watchlist.map((item) => (
-              <tr key={item.id} className="border-b border-zinc-800/50 hover:bg-zinc-800/30">
+              <tr key={item.id} className="border-b border-zinc-800/50 hover:bg-zinc-800/25 transition-colors">
                 <td className="py-4 px-4">
                   <div className="flex items-center justify-center gap-2">
                     <span className="font-semibold text-white">{item.assetTicker}</span>
                     {item.targetReached && (
-                      <span className="flex items-center gap-1 text-xs bg-green-500/20 text-green-500 px-2 py-0.5 rounded">
+                      <span className="flex items-center gap-1 text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-md border border-emerald-500/20">
                         <TargetIcon className="w-3 h-3" />
                         Objetivo
                       </span>
@@ -108,10 +117,10 @@ export default function WatchlistTable({ watchlist, onDelete, onEdit }) {
                   </div>
                 </td>
                 <td className="py-4 px-4 text-center">
-                  <span className={`text-xs px-2 py-1 rounded ${
+                  <span className={`text-[11px] font-medium px-2.5 py-1 rounded-md border ${
                     item.type === 'CRYPTO' 
-                      ? 'bg-orange-500/20 text-orange-400' 
-                      : 'bg-blue-500/20 text-blue-400'
+                      ? 'bg-orange-500/20 text-orange-300 border-orange-500/20' 
+                      : 'bg-blue-500/20 text-blue-300 border-blue-500/20'
                   }`}>
                     {item.type}
                   </span>
@@ -125,10 +134,26 @@ export default function WatchlistTable({ watchlist, onDelete, onEdit }) {
                   </span>
                 </td>
                 <td className="py-4 px-4 text-center font-semibold">
-                  {formatPercentage(item.priceVsTarget)}
+                  {item.targetPrice ? (
+                    <div className="space-y-2">
+                      {formatPercentage(item.priceVsTarget)}
+                      <div className="h-1.5 max-w-35 mx-auto overflow-hidden rounded-full bg-zinc-800">
+                        <div
+                          className={`h-full rounded-full ${
+                            item.targetReached
+                              ? 'bg-linear-to-r from-emerald-500 to-green-400'
+                              : 'bg-linear-to-r from-blue-500 to-cyan-400'
+                          }`}
+                          style={{ width: `${getTargetProgress(item) || 0}%` }}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="text-zinc-500 text-sm">Sin objetivo</span>
+                  )}
                 </td>
                 <td className="py-4 px-4 text-center">
-                  <span className="text-sm text-zinc-400 truncate block max-w-50 mx-auto">
+                  <span className="text-sm text-zinc-400 truncate block max-w-56 mx-auto">
                     {item.notes || '-'}
                   </span>
                 </td>
@@ -136,7 +161,7 @@ export default function WatchlistTable({ watchlist, onDelete, onEdit }) {
                   <div ref={openMenuId === item.id ? menuRef : null}>
                     <button
                       onClick={() => setOpenMenuId(openMenuId === item.id ? null : item.id)}
-                      className="text-zinc-400 hover:text-white transition-colors p-1"
+                      className="text-zinc-400 hover:text-white transition-colors p-1.5 rounded-md hover:bg-zinc-800"
                     >
                       <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                         <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
@@ -144,7 +169,7 @@ export default function WatchlistTable({ watchlist, onDelete, onEdit }) {
                     </button>
 
                     {openMenuId === item.id && (
-                      <div className="absolute right-0 mt-2 w-48 bg-zinc-800 border border-zinc-700 rounded-lg shadow-lg z-10">
+                      <div className="absolute right-0 mt-2 w-48 bg-zinc-800 border border-zinc-700 rounded-lg shadow-lg shadow-black/50 z-10 overflow-hidden">
                         <button
                           onClick={() => {
                             handleEditStart(item);

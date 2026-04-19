@@ -14,10 +14,16 @@ export async function DELETE(request, { params }) {
       return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
     }
 
-    jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded.userId;
 
     const { id } = await params;
-    await deleteWatchlistItem(parseInt(id));
+    const itemId = Number(id);
+    if (!Number.isInteger(itemId) || itemId <= 0) {
+      return NextResponse.json({ error: 'ID inválido' }, { status: 400 });
+    }
+
+    await deleteWatchlistItem(itemId, userId);
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -44,13 +50,19 @@ export async function PATCH(request, { params }) {
       return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
     }
 
-    jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded.userId;
 
     const { id } = await params;
+    const itemId = Number(id);
+    if (!Number.isInteger(itemId) || itemId <= 0) {
+      return NextResponse.json({ error: 'ID inválido' }, { status: 400 });
+    }
+
     const body = await request.json();
     const { targetPrice, notes } = body;
 
-    const updated = await updateWatchlistItem(parseInt(id), {
+    const updated = await updateWatchlistItem(itemId, userId, {
       targetPrice: targetPrice !== undefined ? targetPrice : undefined,
       notes: notes !== undefined ? notes : undefined,
     });
