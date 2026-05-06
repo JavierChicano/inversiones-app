@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRefresh } from "@/app/dashboard/layout";
 import {
   GridIcon,
@@ -17,13 +17,64 @@ import {
   CoinStackIcon,
 } from "../icons";
 
+const REFRESH_COOLDOWN_SECONDS = 30;
+const REFRESH_COOLDOWN_STORAGE_KEY = "dashboard-refresh-cooldown-until";
+
 export default function DashboardNav() {
   const pathname = usePathname();
   const router = useRouter();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [cooldownUntil, setCooldownUntil] = useState(0);
+  const [cooldownRemaining, setCooldownRemaining] = useState(0);
   const { handleRefresh: invalidateCache } = useRefresh();
 
+  useEffect(() => {
+    const syncCooldownState = () => {
+      const storedCooldownUntil = Number(
+        localStorage.getItem(REFRESH_COOLDOWN_STORAGE_KEY) || 0
+      );
+
+      if (!storedCooldownUntil) {
+        setCooldownUntil(0);
+        setCooldownRemaining(0);
+        return;
+      }
+
+      const remainingSeconds = Math.max(
+        0,
+        Math.ceil((storedCooldownUntil - Date.now()) / 1000)
+      );
+
+      if (remainingSeconds === 0) {
+        localStorage.removeItem(REFRESH_COOLDOWN_STORAGE_KEY);
+        setCooldownUntil(0);
+        setCooldownRemaining(0);
+        return;
+      }
+
+      setCooldownUntil(storedCooldownUntil);
+      setCooldownRemaining(remainingSeconds);
+    };
+
+    syncCooldownState();
+
+    const intervalId = setInterval(syncCooldownState, 1000);
+
+    return () => clearInterval(intervalId);
+  }, []);
+
   const handleRefresh = async () => {
+    if (isRefreshing || cooldownRemaining > 0) {
+      return;
+    }
+
+    const cooldownEndsAt = Date.now() + REFRESH_COOLDOWN_SECONDS * 1000;
+    localStorage.setItem(
+      REFRESH_COOLDOWN_STORAGE_KEY,
+      String(cooldownEndsAt)
+    );
+    setCooldownUntil(cooldownEndsAt);
+    setCooldownRemaining(REFRESH_COOLDOWN_SECONDS);
     setIsRefreshing(true);
     try {
       const token = localStorage.getItem("auth_token");
@@ -105,6 +156,8 @@ export default function DashboardNav() {
     return section?.name || "Vista General";
   };
 
+  const isRefreshDisabled = isRefreshing || cooldownRemaining > 0;
+
   return (
     <div className="mb-8">
       {/* Header con navegación */}
@@ -120,17 +173,25 @@ export default function DashboardNav() {
         <div className="flex items-center gap-3">
           <button
             onClick={handleRefresh}
-            disabled={isRefreshing}
+            disabled={isRefreshDisabled}
             className={`btn-secondary rounded-lg flex items-center gap-2 ${
-              isRefreshing ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
+              isRefreshDisabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
             }`}
-            title="Actualizar datos"
+            title={
+              cooldownRemaining > 0
+                ? `Espera ${cooldownRemaining}s para volver a actualizar`
+                : "Actualizar datos"
+            }
           >
             <RefreshIcon
               className={`w-5 h-5 ${isRefreshing ? "animate-spin" : ""}`}
             />
             <span className="hidden sm:inline">
-              {isRefreshing ? "Actualizando..." : "Actualizar"}
+              {isRefreshing
+                ? "Actualizando..."
+                : cooldownRemaining > 0
+                  ? `Espera ${cooldownRemaining}s`
+                  : "Actualizar"}
             </span>
           </button>
         </div>

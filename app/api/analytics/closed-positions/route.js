@@ -57,6 +57,7 @@ export async function GET(request) {
         // Agregar compra a la cola
         tickerData[ticker].buyQueue.push({
           quantity: tx.quantity,
+          originalQuantity: tx.quantity,
           pricePerUnit: tx.pricePerUnit,
           fees: tx.fees,
           date: tx.date,
@@ -69,13 +70,24 @@ export async function GET(request) {
         const sellRevenue = tx.quantity * tx.pricePerUnit - tx.fees;
         const sellDate = new Date(tx.date);
 
-        // Procesar FIFO
+        // Procesar "Lowest Cost First" - vender primero las compras más baratas
         while (remainingToSell > 0 && tickerData[ticker].buyQueue.length > 0) {
-          const buy = tickerData[ticker].buyQueue[0];
+          // Encontrar la compra con el precio más bajo
+          let lowestIndex = 0;
+          let lowestPrice = tickerData[ticker].buyQueue[0].pricePerUnit;
+          
+          for (let i = 1; i < tickerData[ticker].buyQueue.length; i++) {
+            if (tickerData[ticker].buyQueue[i].pricePerUnit < lowestPrice) {
+              lowestPrice = tickerData[ticker].buyQueue[i].pricePerUnit;
+              lowestIndex = i;
+            }
+          }
+          
+          const buy = tickerData[ticker].buyQueue[lowestIndex];
           const quantityToUse = Math.min(remainingToSell, buy.quantity);
           
-          // Calcular costo de esta porción
-          const portionCost = quantityToUse * buy.pricePerUnit + (buy.fees * quantityToUse / buy.quantity);
+          // Calcular costo de esta porción usando la cantidad ORIGINAL para la prorratización de comisiones
+          const portionCost = quantityToUse * buy.pricePerUnit + (buy.fees * quantityToUse / buy.originalQuantity);
           totalCost += portionCost;
 
           // Calcular tiempo de posesión de esta porción vendida
@@ -91,7 +103,7 @@ export async function GET(request) {
           // Actualizar cola
           buy.quantity -= quantityToUse;
           if (buy.quantity <= 0) {
-            tickerData[ticker].buyQueue.shift();
+            tickerData[ticker].buyQueue.splice(lowestIndex, 1);
           }
 
           remainingToSell -= quantityToUse;

@@ -7,6 +7,7 @@ HACER SEO BÁSICO
 
 Poner pricing
     - Mensualidad para desbloquear contenido capado
+    - Agregar mas de un asset (capado a 1)
 
 Hacer la version app movil
 

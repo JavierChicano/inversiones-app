@@ -12,6 +12,8 @@ export default function SettingsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportError, setExportError] = useState('');
 
   const handleChangePassword = async (e) => {
     e.preventDefault();
@@ -57,6 +59,145 @@ export default function SettingsPage() {
       setError(err.message || 'Error al cambiar contraseña');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const generateCSV = (headers, rows) => {
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row =>
+        row.map(cell => {
+          const cellStr = String(cell ?? '');
+          return cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')
+            ? `"${cellStr.replace(/"/g, '""')}"`
+            : cellStr;
+        }).join(',')
+      ),
+    ].join('\n');
+
+    return csvContent;
+  };
+
+  const downloadFile = (content, filename) => {
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleExportData = async () => {
+    setExportError('');
+    setIsExporting(true);
+
+    try {
+      if (!token) {
+        throw new Error('No autorizado');
+      }
+
+      // Obtener transacciones
+      const transactionsResponse = await fetch('/api/transactions', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      if (!transactionsResponse.ok) {
+        throw new Error('Error al obtener transacciones');
+      }
+
+      const transactionsData = await transactionsResponse.json();
+      const transactions = transactionsData.transactions || [];
+
+      // Obtener análisis de posiciones cerradas
+      const analyticsResponse = await fetch('/api/analytics/closed-positions', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      if (!analyticsResponse.ok) {
+        throw new Error('Error al obtener análisis');
+      }
+
+      const analyticsData = await analyticsResponse.json();
+
+      // Generar CSV de transacciones
+      const transactionHeaders = ['Fecha', 'Ticker', 'Tipo Asset', 'Operación', 'Cantidad', 'Precio/Unidad', 'Comisiones', 'Total USD'];
+      const transactionRows = transactions.map(tx => [
+        new Date(tx.date).toLocaleDateString('es-ES'),
+        tx.assetTicker,
+        tx.asset?.type || 'STOCK',
+        tx.type === 'BUY' ? 'Compra' : 'Venta',
+        tx.quantity.toFixed(8),
+        tx.pricePerUnit.toFixed(2),
+        tx.fees?.toFixed(2) || '0.00',
+        (tx.type === 'BUY'
+          ? tx.quantity * tx.pricePerUnit + (tx.fees || 0)
+          : tx.quantity * tx.pricePerUnit - (tx.fees || 0)
+        ).toFixed(2),
+      ]);
+
+      const transactionCSV = generateCSV(transactionHeaders, transactionRows);
+
+      // Generar CSV de posiciones cerradas
+      const closedHeaders = ['Ticker', 'Tipo', 'Operaciones', 'Ganancia Total', 'Ganancia Media', 'ROI %', 'Win Rate %', 'Trades Ganadores', 'Trades Perdedores', 'Tiempo Promedio (días)'];
+      const closedRows = (analyticsData.closedPositions || []).map(pos => [
+        pos.ticker,
+        pos.type,
+        pos.totalTrades,
+        pos.totalGainLoss.toFixed(2),
+        pos.avgGainPerTrade.toFixed(2),
+        pos.roi.toFixed(2),
+        pos.winRate.toFixed(2),
+        pos.winningTrades,
+        pos.losingTrades,
+        pos.avgHoldingDays,
+      ]);
+
+      const closedCSV = generateCSV(closedHeaders, closedRows);
+
+      // Generar CSV de métricas globales
+      const metricsData = analyticsData.metrics || {};
+      const metricsHeaders = ['Métrica', 'Valor'];
+      const metricsRows = [
+        ['Total Trades', metricsData.totalTrades],
+        ['Ganancias Totales USD', metricsData.totalGainLoss?.toFixed(2)],
+        ['Ganancias Totales EUR', metricsData.totalGainLossEur?.toFixed(2)],
+        ['ROI Global %', metricsData.globalROI?.toFixed(2)],
+        ['Win Rate %', metricsData.winRate?.toFixed(2)],
+        ['Ganancia Media por Trade USD', metricsData.avgGainPerTrade?.toFixed(2)],
+        ['Ganancia Media por Trade EUR', metricsData.avgGainPerTradeEur?.toFixed(2)],
+        ['Trades Ganadores', metricsData.winningTrades],
+        ['Trades Perdedores', metricsData.losingTrades],
+        ['Tiempo Promedio Posesión (días)', metricsData.avgHoldingDays],
+      ];
+
+      const metricsCSV = generateCSV(metricsHeaders, metricsRows);
+
+      // Combinar todos los CSV
+      const allContent = [
+        '=== TRANSACCIONES ===',
+        transactionCSV,
+        '\n\n=== POSICIONES CERRADAS ===',
+        closedCSV,
+        '\n\n=== ESTADÍSTICAS GLOBALES ===',
+        metricsCSV,
+      ].join('\n');
+
+      const now = new Date();
+      const filename = `inversiones-export-${now.toISOString().split('T')[0]}.csv`;
+
+      downloadFile(allContent, filename);
+      setSuccess('Datos exportados exitosamente.');
+
+      setTimeout(() => setSuccess(''), 5000);
+    } catch (err) {
+      setExportError(err.message || 'Error al exportar datos');
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -130,6 +271,30 @@ export default function SettingsPage() {
               {isSubmitting ? 'Actualizando...' : 'Actualizar contraseña'}
             </button>
           </form>
+        </div>
+
+        <div className="mt-8 bg-zinc-800/50 rounded-lg p-6 border border-zinc-700/50">
+          <h3 className="text-lg font-semibold text-white mb-4">Exportar datos</h3>
+          <p className="text-zinc-400 text-sm mb-6">
+            Descarga un archivo CSV con todas tus transacciones, posiciones cerradas y estadísticas de inversión.
+          </p>
+
+          {exportError && (
+            <div className="mb-4 bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg text-sm">
+              {exportError}
+            </div>
+          )}
+
+          <button
+            onClick={handleExportData}
+            disabled={isExporting}
+            className="btn-secondary rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            <svg className={`w-5 h-5 ${isExporting ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            {isExporting ? 'Exportando...' : 'Descargar CSV'}
+          </button>
         </div>
       </div>
     </DashboardLayout>
