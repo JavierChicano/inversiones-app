@@ -132,60 +132,72 @@ export async function GET(request) {
     let realizedGainLoss = 0; // Ganancia/pérdida solo de ventas
     let closedPositions = 0; // Número de ventas realizadas
 
-    userTransactions.forEach((tx) => {
+    const transactions = [...userTransactions].sort(
+      (a, b) => new Date(a.date) - new Date(b.date)
+    );
+
+    transactions.forEach((tx) => {
       const ticker = tx.assetTicker;
-      
+
       if (!portfolio[ticker]) {
         portfolio[ticker] = {
           ticker,
-          quantity: 0,
-          totalCost: 0,
-          avgBuyPrice: 0,
-          firstBuyDate: null, // Para calcular tiempo de posesión medio
+          buyQueue: [],
         };
       }
 
       if (tx.type === 'BUY') {
-        // Registrar fecha de primera compra
-        // Si la cantidad era 0 o muy cercana a 0 (posición cerrada), iniciamos nueva fecha
-        if (portfolio[ticker].quantity < 0.00000001) {
-          portfolio[ticker].firstBuyDate = tx.date;
-        } else if (!portfolio[ticker].firstBuyDate || new Date(tx.date) < new Date(portfolio[ticker].firstBuyDate)) {
-          // Solo usar fecha más antigua si hay posiciones abiertas
-          console.log(`[${ticker}] Posición existente (${portfolio[ticker].quantity}) - Manteniendo firstBuyDate: ${portfolio[ticker].firstBuyDate}`);
-        }
-        
-        // Añadir la nueva compra al portfolio
-        portfolio[ticker].quantity += tx.quantity;
-        portfolio[ticker].totalCost += tx.quantity * tx.pricePerUnit + tx.fees;
+        portfolio[ticker].buyQueue.push({
+          quantity: tx.quantity,
+          originalQuantity: tx.quantity,
+          pricePerUnit: tx.pricePerUnit,
+          fees: tx.fees,
+          date: tx.date,
+        });
+
         totalInvested += tx.quantity * tx.pricePerUnit + tx.fees;
         totalFees += tx.fees;
-        
-        // Calcular precio medio ponderado: totalCost incluye todas las compras + fees
-        portfolio[ticker].avgBuyPrice = portfolio[ticker].totalCost / portfolio[ticker].quantity;
       } else if (tx.type === 'SELL') {
         closedPositions++; // Incrementar contador de posiciones cerradas
-        
-        const avgBuyPriceAtSell = portfolio[ticker].quantity > 0 
-          ? portfolio[ticker].totalCost / portfolio[ticker].quantity 
-          : 0;
-        
-        // Calcular ganancia/pérdida realizada en esta venta
+
+        let remainingToSell = tx.quantity;
+        let totalCost = 0;
         const sellRevenue = tx.quantity * tx.pricePerUnit - tx.fees;
-        const sellCost = tx.quantity * avgBuyPriceAtSell;
-        realizedGainLoss += (sellRevenue - sellCost);
-        
-        portfolio[ticker].quantity -= tx.quantity;
-        portfolio[ticker].totalCost -= sellCost;
-        totalSellProceeds += sellRevenue;
-        totalFees += tx.fees;
-        
-        // Si la posición se cerró completamente (con tolerancia para redondeo), reiniciar firstBuyDate
-        if (portfolio[ticker].quantity < 0.00000001 || portfolio[ticker].totalCost < 0.01) {
-          portfolio[ticker].firstBuyDate = null;
-          portfolio[ticker].quantity = 0; // Asegurar que sea exactamente 0
-          portfolio[ticker].totalCost = 0; // Asegurar que sea exactamente 0
+
+        while (remainingToSell > 0 && portfolio[ticker].buyQueue.length > 0) {
+          let lowestIndex = 0;
+          let lowestPrice = portfolio[ticker].buyQueue[0].pricePerUnit;
+
+          for (let i = 1; i < portfolio[ticker].buyQueue.length; i++) {
+            if (portfolio[ticker].buyQueue[i].pricePerUnit < lowestPrice) {
+              lowestPrice = portfolio[ticker].buyQueue[i].pricePerUnit;
+              lowestIndex = i;
+            }
+          }
+
+          const buy = portfolio[ticker].buyQueue[lowestIndex];
+          const quantityToUse = Math.min(remainingToSell, buy.quantity);
+
+          // Prorrateo de comisiones sobre la parte del lote que se vende
+          const portionCost =
+            quantityToUse * buy.pricePerUnit +
+            (buy.fees * quantityToUse) / buy.originalQuantity;
+          totalCost += portionCost;
+
+          buy.quantity -= quantityToUse;
+          if (buy.quantity <= 0) {
+            portfolio[ticker].buyQueue.splice(lowestIndex, 1);
+          }
+
+          remainingToSell -= quantityToUse;
         }
+
+        const soldQuantity = tx.quantity - remainingToSell;
+        const portionRevenue =
+          tx.quantity > 0 ? (sellRevenue * soldQuantity) / tx.quantity : 0;
+        realizedGainLoss += portionRevenue - totalCost;
+        totalSellProceeds += portionRevenue;
+        totalFees += tx.fees;
       }
     });
 
@@ -195,28 +207,37 @@ export async function GET(request) {
     const stockDistribution = [];
 
     Object.values(portfolio).forEach((position) => {
-      if (position.quantity > 0) {
-        const currentPrice = priceMap[position.ticker] || 0;
-        const currentValue = position.quantity * currentPrice;
-        totalCurrentValue += currentValue;
-        currentInvested += position.totalCost; // Sumar el costo de posiciones abiertas
+      const openQuantity = position.buyQueue.reduce((sum, buy) => sum + buy.quantity, 0);
 
-        // Calcular días de posesión
-        const holdingDays = position.firstBuyDate 
-          ? Math.floor((new Date() - new Date(position.firstBuyDate)) / (1000 * 60 * 60 * 24))
+      if (openQuantity > 0) {
+        const openCost = position.buyQueue.reduce((sum, buy) => {
+          return sum + buy.quantity * buy.pricePerUnit + (buy.fees * buy.quantity) / buy.originalQuantity;
+        }, 0);
+        const currentPrice = priceMap[position.ticker] || 0;
+        const currentValue = openQuantity * currentPrice;
+        totalCurrentValue += currentValue;
+        currentInvested += openCost; // Sumar el costo de posiciones abiertas
+
+        const oldestOpenBuyDate = position.buyQueue.reduce((oldest, buy) => {
+          if (!oldest) return buy.date;
+          return new Date(buy.date) < new Date(oldest) ? buy.date : oldest;
+        }, null);
+
+        const holdingDays = oldestOpenBuyDate
+          ? Math.floor((new Date() - new Date(oldestOpenBuyDate)) / (1000 * 60 * 60 * 24))
           : 0;
 
         stockDistribution.push({
           ticker: position.ticker,
           type: assetTypeMap[position.ticker] || 'STOCK',
-          quantity: position.quantity,
+          quantity: openQuantity,
           currentValue: currentValue,
           percentage: 0, // Se calculará después
-          avgBuyPrice: position.avgBuyPrice,
+          avgBuyPrice: openCost / openQuantity,
           currentPrice: currentPrice,
-          gainLoss: currentValue - position.totalCost,
-          gainLossPercent: position.totalCost > 0 
-            ? ((currentValue - position.totalCost) / position.totalCost) * 100 
+          gainLoss: currentValue - openCost,
+          gainLossPercent: openCost > 0
+            ? ((currentValue - openCost) / openCost) * 100
             : 0,
           avgHoldingDays: holdingDays,
         });

@@ -3,8 +3,9 @@
 import { useEffect, useRef } from 'react';
 import * as echarts from 'echarts';
 
-export default function RealizedGainsChart({ data }) {
+export default function RealizedGainsChart({ data, exchangeRate = 1.1 }) {
   const chartRef = useRef(null);
+  const usdToEur = 1 / exchangeRate;
 
   useEffect(() => {
     if (!chartRef.current || !data || data.length === 0) return;
@@ -19,8 +20,8 @@ export default function RealizedGainsChart({ data }) {
         year: '2-digit'
       })
     );
-    const cumulativeGains = data.map(item => item.cumulativeGain);
-    const tradeGains = data.map(item => item.gainLoss);
+    const cumulativeGains = data.map(item => item.cumulativeGain * usdToEur);
+    const tradeGains = data.map(item => item.gainLoss * usdToEur);
 
     const option = {
       backgroundColor: 'transparent',

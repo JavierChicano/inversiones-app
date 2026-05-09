@@ -167,7 +167,7 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Gráfico de ganancias realizadas */}
-      <RealizedGainsChart data={progression} />
+      <RealizedGainsChart data={progression} exchangeRate={data.exchangeRate.eurUsd} />
 
       {/* Tabla de posiciones cerradas */}
       <ClosedPositionsTable data={closedPositions} />
