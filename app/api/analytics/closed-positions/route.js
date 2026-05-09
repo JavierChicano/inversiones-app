@@ -125,6 +125,7 @@ export async function GET(request) {
           revenue: portionRevenue,
           invested: totalCost,
           gainLoss,
+          roi: totalCost > 0 ? (gainLoss / totalCost) * 100 : 0,
           holdingDays: avgHoldingDaysForSell,
         });
 
@@ -149,8 +150,15 @@ export async function GET(request) {
       }
     });
 
+    // Tipo de cambio EUR/USD
+    const eurUsdAsset = assetPrices.find(a => a.ticker === 'EURUSD');
+    const eurUsdRate = eurUsdAsset?.currentPrice || 1.1;
+    const usdEurRate = 1 / eurUsdRate;
+
+    const toEur = (value) => value * usdEurRate;
+
     // Convertir a array y calcular métricas finales
-    const closedPositions = Object.values(tickerData)
+    const closedPositionsUsd = Object.values(tickerData)
       .filter(t => t.totalSellCount > 0)
       .map(t => ({
         ticker: t.ticker,
@@ -170,12 +178,12 @@ export async function GET(request) {
       }))
       .sort((a, b) => b.totalGainLoss - a.totalGainLoss);
 
-    // Calcular métricas globales
-    const totalTrades = closedPositions.reduce((sum, p) => sum + p.totalTrades, 0);
-    const totalGainLoss = closedPositions.reduce((sum, p) => sum + p.totalGainLoss, 0);
-    const totalInvested = closedPositions.reduce((sum, p) => sum + p.totalInvested, 0);
-    const totalWinning = closedPositions.reduce((sum, p) => sum + p.winningTrades, 0);
-    const totalLosing = closedPositions.reduce((sum, p) => sum + p.losingTrades, 0);
+    // Calcular métricas globales en USD para mantener la trazabilidad original
+    const totalTrades = closedPositionsUsd.reduce((sum, p) => sum + p.totalTrades, 0);
+    const totalGainLoss = closedPositionsUsd.reduce((sum, p) => sum + p.totalGainLoss, 0);
+    const totalInvested = closedPositionsUsd.reduce((sum, p) => sum + p.totalInvested, 0);
+    const totalWinning = closedPositionsUsd.reduce((sum, p) => sum + p.winningTrades, 0);
+    const totalLosing = closedPositionsUsd.reduce((sum, p) => sum + p.losingTrades, 0);
     const avgHoldingDays = totalSoldQuantity > 0 ? Math.floor(totalHoldingDays / totalSoldQuantity) : 0;
 
     const globalMetrics = {
@@ -187,14 +195,25 @@ export async function GET(request) {
       winRate: totalTrades > 0 ? (totalWinning / totalTrades) * 100 : 0,
       winningTrades: totalWinning,
       losingTrades: totalLosing,
-      totalTickers: closedPositions.length,
+      totalTickers: closedPositionsUsd.length,
       avgHoldingDays: avgHoldingDays,
     };
 
-    // Tipo de cambio EUR/USD
-    const eurUsdAsset = assetPrices.find(a => a.ticker === 'EURUSD');
-    const eurUsdRate = eurUsdAsset?.currentPrice || 1.1;
-    const usdEurRate = 1 / eurUsdRate;
+    const closedPositions = closedPositionsUsd.map((position) => ({
+      ...position,
+      trades: (position.trades || []).map((trade) => ({
+        ...trade,
+        revenue: toEur(trade.revenue),
+        invested: toEur(trade.invested),
+        gainLoss: toEur(trade.gainLoss),
+        roi: trade.roi,
+      })),
+      totalGainLoss: toEur(position.totalGainLoss),
+      avgGainPerTrade: toEur(position.avgGainPerTrade),
+      totalInvested: toEur(position.totalInvested),
+      totalRevenue: toEur(position.totalRevenue),
+    }))
+      .sort((a, b) => b.totalGainLoss - a.totalGainLoss);
 
     return NextResponse.json({
       closedPositions,

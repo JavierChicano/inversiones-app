@@ -68,17 +68,17 @@ export default function ClosedPositionsTable({ data }) {
                   key={position.ticker}
                   className="border-b border-zinc-800/50 hover:bg-zinc-800/30 transition-colors"
                 >
-                  <td className="py-4 px-4">
+                  <td className="py-4 px-4 relative">
+                    {position.totalTrades > 1 && (
+                      <button
+                        onClick={() => toggleExpanded(position.ticker)}
+                        className="absolute left-1 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white transition-colors"
+                        aria-label={expanded[position.ticker] ? 'Collapse' : 'Expand'}
+                      >
+                        {expanded[position.ticker] ? '▾' : '▸'}
+                      </button>
+                    )}
                     <div className="flex items-center gap-2">
-                      {position.totalTrades > 1 && (
-                        <button
-                          onClick={() => toggleExpanded(position.ticker)}
-                          className="text-zinc-400 hover:text-white transition-colors mr-2"
-                          aria-label={expanded[position.ticker] ? 'Collapse' : 'Expand'}
-                        >
-                          {expanded[position.ticker] ? '▾' : '▸'}
-                        </button>
-                      )}
                       <div className={`w-2 h-2 rounded-full ${getAssetColor(position.type)}`} />
                       <span className="text-white font-semibold">{position.ticker}</span>
                     </div>
@@ -147,7 +147,15 @@ export default function ClosedPositionsTable({ data }) {
                           {formatCurrency(trade.gainLoss)}
                         </span>
                       </td>
-                      <td className="py-2 px-4 text-right text-sm">{/* ROI per trade not calculated */}</td>
+                      <td className="py-2 px-4 text-right text-sm">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-sm font-semibold ${
+                          trade.roi >= 0
+                            ? 'bg-green-500/10 text-green-500'
+                            : 'bg-red-500/10 text-red-500'
+                        }`}>
+                          {formatPercent(trade.roi || 0)}
+                        </span>
+                      </td>
                       <td className="py-2 px-4 text-right text-zinc-300 text-sm">{formatHoldingTime(trade.holdingDays || 0)}</td>
                       <td className="py-2 px-4 text-right text-sm">-</td>
                       <td className="py-2 px-4 text-right text-sm">-</td>
