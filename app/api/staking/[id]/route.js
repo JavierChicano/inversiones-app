@@ -26,7 +26,7 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const { id } = params;
+    const { id } = await params;
     const positionId = parseInt(id, 10);
     const body = await request.json();
     const amountToUnstake = Number(body.amountToUnstake);

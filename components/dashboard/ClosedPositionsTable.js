@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, Fragment } from 'react';
 import { formatHoldingTime } from '@/lib/utils/formatters';
 
 export default function ClosedPositionsTable({ data }) {
@@ -36,6 +37,12 @@ export default function ClosedPositionsTable({ data }) {
     return 'bg-blue-500';
   };
 
+  const [expanded, setExpanded] = useState({});
+
+  const toggleExpanded = (ticker) => {
+    setExpanded((prev) => ({ ...prev, [ticker]: !prev[ticker] }));
+  };
+
   return (
     <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
       <h3 className="text-white text-lg font-semibold mb-4">Posiciones Cerradas por Ticker</h3>
@@ -56,16 +63,26 @@ export default function ClosedPositionsTable({ data }) {
           </thead>
           <tbody>
             {data.map((position, index) => (
-              <tr
-                key={position.ticker}
-                className="border-b border-zinc-800/50 hover:bg-zinc-800/30 transition-colors"
-              >
-                <td className="py-4 px-4">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${getAssetColor(position.type)}`} />
-                    <span className="text-white font-semibold">{position.ticker}</span>
-                  </div>
-                </td>
+              <Fragment key={position.ticker}>
+                <tr
+                  key={position.ticker}
+                  className="border-b border-zinc-800/50 hover:bg-zinc-800/30 transition-colors"
+                >
+                  <td className="py-4 px-4">
+                    <div className="flex items-center gap-2">
+                      {position.totalTrades > 1 && (
+                        <button
+                          onClick={() => toggleExpanded(position.ticker)}
+                          className="text-zinc-400 hover:text-white transition-colors mr-2"
+                          aria-label={expanded[position.ticker] ? 'Collapse' : 'Expand'}
+                        >
+                          {expanded[position.ticker] ? '▾' : '▸'}
+                        </button>
+                      )}
+                      <div className={`w-2 h-2 rounded-full ${getAssetColor(position.type)}`} />
+                      <span className="text-white font-semibold">{position.ticker}</span>
+                    </div>
+                  </td>
                 <td className="py-4 px-4 text-zinc-400 text-sm">
                   {getAssetTypeLabel(position.type)}
                 </td>
@@ -112,7 +129,32 @@ export default function ClosedPositionsTable({ data }) {
                   /
                   <span className="text-red-500">{position.losingTrades}</span>
                 </td>
-              </tr>
+                </tr>
+
+                {expanded[position.ticker] && (position.trades || []).length > 0 && (
+                  (position.trades || []).map((trade, tIndex) => (
+                    <tr key={`${position.ticker}-trade-${tIndex}`} className="bg-zinc-900/40">
+                      <td className="py-2 px-4 pl-12 text-zinc-300 text-sm">{new Date(trade.date).toLocaleString()}</td>
+                      <td className="py-2 px-4 text-zinc-400 text-sm">{getAssetTypeLabel(position.type)}</td>
+                      <td className="py-2 px-4 text-right text-white text-sm">1</td>
+                      <td className="py-2 px-4 text-right text-sm">
+                        <span className={`font-semibold ${trade.gainLoss >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                          {formatCurrency(trade.gainLoss)}
+                        </span>
+                      </td>
+                      <td className="py-2 px-4 text-right text-sm">
+                        <span className={`${trade.gainLoss >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                          {formatCurrency(trade.gainLoss)}
+                        </span>
+                      </td>
+                      <td className="py-2 px-4 text-right text-sm">{/* ROI per trade not calculated */}</td>
+                      <td className="py-2 px-4 text-right text-zinc-300 text-sm">{formatHoldingTime(trade.holdingDays || 0)}</td>
+                      <td className="py-2 px-4 text-right text-sm">-</td>
+                      <td className="py-2 px-4 text-right text-sm">-</td>
+                    </tr>
+                  ))
+                )}
+              </Fragment>
             ))}
           </tbody>
         </table>

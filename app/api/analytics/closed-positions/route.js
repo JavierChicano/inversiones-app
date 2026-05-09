@@ -41,6 +41,7 @@ export async function GET(request) {
           ticker,
           type: assetTypeMap[ticker] || 'STOCK',
           buyQueue: [], // Cola FIFO de compras
+          trades: [], // Detalle por operación (ventas)
           totalGainLoss: 0,
           totalSellCount: 0,
           totalBuyCount: 0,
@@ -71,6 +72,7 @@ export async function GET(request) {
         const sellDate = new Date(tx.date);
 
         // Procesar "Lowest Cost First" - vender primero las compras más baratas
+        let sellHoldingDaysSum = 0;
         while (remainingToSell > 0 && tickerData[ticker].buyQueue.length > 0) {
           // Encontrar la compra con el precio más bajo
           let lowestIndex = 0;
@@ -99,6 +101,7 @@ export async function GET(request) {
           // Agregar tiempo de posesión al ticker específico
           tickerData[ticker].totalHoldingDays += holdingDays * quantityToUse;
           tickerData[ticker].totalSoldQuantity += quantityToUse;
+          sellHoldingDaysSum += holdingDays * quantityToUse;
 
           // Actualizar cola
           buy.quantity -= quantityToUse;
@@ -112,6 +115,18 @@ export async function GET(request) {
         // Calcular ganancia/pérdida de esta venta
         const portionRevenue = sellRevenue * (tx.quantity - remainingToSell) / tx.quantity;
         const gainLoss = portionRevenue - totalCost;
+
+        // Detalle de la venta (operación) para poder desplegar
+        const soldQuantity = tx.quantity - remainingToSell;
+        const avgHoldingDaysForSell = soldQuantity > 0 ? Math.floor(sellHoldingDaysSum / soldQuantity) : 0;
+        tickerData[ticker].trades.push({
+          date: tx.date,
+          quantity: soldQuantity,
+          revenue: portionRevenue,
+          invested: totalCost,
+          gainLoss,
+          holdingDays: avgHoldingDaysForSell,
+        });
 
         tickerData[ticker].totalGainLoss += gainLoss;
         tickerData[ticker].totalSellCount++;
@@ -140,6 +155,7 @@ export async function GET(request) {
       .map(t => ({
         ticker: t.ticker,
         type: t.type,
+        trades: (t.trades || []).sort((a,b) => new Date(b.date) - new Date(a.date)),
         totalGainLoss: t.totalGainLoss,
         totalTrades: t.totalSellCount,
         buyCount: t.totalBuyCount,
