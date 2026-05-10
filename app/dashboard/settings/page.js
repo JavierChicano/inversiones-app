@@ -143,11 +143,13 @@ export default function SettingsPage() {
       const transactionCSV = generateCSV(transactionHeaders, transactionRows);
 
       // Generar CSV de posiciones cerradas
-      const closedHeaders = ['Ticker', 'Tipo', 'Operaciones', 'Ganancia Total', 'Ganancia Media', 'ROI %', 'Win Rate %', 'Trades Ganadores', 'Trades Perdedores', 'Tiempo Promedio (días)'];
+      const closedHeaders = ['Ticker', 'Tipo', 'Operaciones', 'Invertido EUR', 'Total vendido EUR', 'Ganancia Total', 'Ganancia Media', 'ROI %', 'Win Rate %', 'Trades Ganadores', 'Trades Perdedores', 'Tiempo Promedio (días)'];
       const closedRows = (analyticsData.closedPositions || []).map(pos => [
         pos.ticker,
         pos.type,
         pos.totalTrades,
+        (pos.totalInvested || 0).toFixed(2),
+        (pos.totalRevenue || 0).toFixed(2),
         pos.totalGainLoss.toFixed(2),
         pos.avgGainPerTrade.toFixed(2),
         pos.roi.toFixed(2),

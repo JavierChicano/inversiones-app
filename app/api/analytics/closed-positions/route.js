@@ -64,7 +64,8 @@ export async function GET(request) {
           date: tx.date,
         });
         tickerData[ticker].totalBuyCount++;
-        tickerData[ticker].totalInvested += (tx.quantity * tx.pricePerUnit + tx.fees);
+        // Nota: no acumulamos `totalInvested` aquí porque ese valor
+        // debe representar solo el coste de las porciones que ya se han vendido.
       } else if (tx.type === 'SELL') {
         let remainingToSell = tx.quantity;
         let totalCost = 0;
@@ -115,6 +116,9 @@ export async function GET(request) {
         // Calcular ganancia/pérdida de esta venta
         const portionRevenue = sellRevenue * (tx.quantity - remainingToSell) / tx.quantity;
         const gainLoss = portionRevenue - totalCost;
+
+        // Acumular el coste real asociado a las porciones vendidas
+        tickerData[ticker].totalInvested += totalCost;
 
         // Detalle de la venta (operación) para poder desplegar
         const soldQuantity = tx.quantity - remainingToSell;
