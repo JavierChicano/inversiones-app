@@ -7,6 +7,33 @@ export default function StockDistributionChart({ data, exchangeRate = 1.1 }) {
   const chartRef = useRef(null);
   const chartInstance = useRef(null);
 
+  const totalValueUSD = data
+    ? data.reduce((sum, item) => sum + item.currentValue, 0)
+    : 0;
+
+  const formatCurrencyUSD = (value) =>
+    `$${value.toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+
+  const summaryItems = data
+    ? [
+        {
+          key: 'STOCK',
+          label: 'Acciones',
+          color: '#3b82f6',
+          value: data.filter((item) => item.type === 'STOCK').reduce((sum, item) => sum + item.currentValue, 0),
+        },
+        {
+          key: 'CRYPTO',
+          label: 'Crypto',
+          color: '#eab308',
+          value: data.filter((item) => item.type === 'CRYPTO').reduce((sum, item) => sum + item.currentValue, 0),
+        },
+      ]
+    : [];
+
   useEffect(() => {
     if (!chartRef.current) return;
 
@@ -19,9 +46,6 @@ export default function StockDistributionChart({ data, exchangeRate = 1.1 }) {
     }
 
     const chart = chartInstance.current;
-
-    // Calcular el total de dinero en USD (los valores ya vienen en USD)
-    const totalValueUSD = data.reduce((sum, item) => sum + item.currentValue, 0);
 
     // Detectar si es mobile
     const isMobile = window.innerWidth < 1024;
@@ -157,8 +181,41 @@ export default function StockDistributionChart({ data, exchangeRate = 1.1 }) {
   }, [data]);
 
   return (
-    <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 h-full flex flex-col">
+    <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 h-full flex flex-col relative overflow-hidden">
       <h3 className="text-white text-lg font-semibold mb-4">Stock</h3>
+      {!(!data || data.length === 0) && (
+        <div className="hidden lg:block absolute top-6 right-6 z-10 w-60 rounded-xl border border-zinc-700/80 bg-zinc-950/70 px-3 py-2 backdrop-blur-sm">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-semibold tracking-[0.18em] text-zinc-300 uppercase">
+              Resumen
+            </span>
+            <span className="text-[11px] text-zinc-500">Crypto vs Acciones</span>
+          </div>
+
+          <div className="space-y-2">
+            {summaryItems.map((item) => {
+              const percentage = totalValueUSD > 0 ? (item.value / totalValueUSD) * 100 : 0;
+
+              return (
+                <div key={item.key} className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span
+                      className="h-2.5 w-2.5 rounded-full shrink-0"
+                      style={{ backgroundColor: item.color }}
+                    />
+                    <span className="text-sm text-zinc-100 font-medium truncate">
+                      {item.label}
+                    </span>
+                  </div>
+                  <span className="text-sm text-white font-semibold tabular-nums text-right">
+                    {formatCurrencyUSD(item.value)} · {percentage.toFixed(1)}%
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
       {!data || data.length === 0 ? (
         <div className="flex-1 flex items-center justify-center">
           <p className="text-zinc-500 text-center">Gráfico sin datos</p>

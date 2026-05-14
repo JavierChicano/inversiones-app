@@ -1,9 +1,12 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
+import { calculateCurrencyExchangeMetrics } from "@/lib/utils/currencyExchangeMetrics";
 
-export default function CurrencyExchangesTable({ exchanges, onDelete, onEdit }) {
+export default function CurrencyExchangesTable({ exchanges, exchangeMetrics, onDelete, onEdit }) {
   const [openMenuId, setOpenMenuId] = useState(null);
   const menuRef = useRef(null);
+  const fallbackCurrentRate = exchanges.find((exchange) => exchange.currentRate)?.currentRate || 0;
+  const computedMetrics = exchangeMetrics || calculateCurrencyExchangeMetrics(exchanges, fallbackCurrentRate);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -65,6 +68,8 @@ export default function CurrencyExchangesTable({ exchanges, onDelete, onEdit }) 
     return sum + ex.originalValue / ex.currentRate;
   }, 0);
   const currentRate = eurToUsdExchanges.length > 0 ? eurToUsdExchanges[0].currentRate : 0;
+  const openRowDifference = computedMetrics.summary.openUnrealizedEur;
+  const openRowValue = computedMetrics.summary.openCurrentValueEur;
 
   // Total global (EUR->USD + USD->EUR) normalizado a base EUR
   return (
@@ -90,7 +95,7 @@ export default function CurrencyExchangesTable({ exchanges, onDelete, onEdit }) 
                 <td className="py-4 px-4 text-white text-sm">TOTAL ABIERTAS</td>
                 <td className="py-4 px-4 text-left text-zinc-400 text-sm">-</td>
                 <td className="py-4 px-4 text-center text-white font-bold text-sm">
-                  {formatCurrency(totalAmount, "EUR")}
+                  {formatCurrency(computedMetrics.summary.openCostEur || totalAmount, "EUR")}
                 </td>
                 <td className="py-4 px-4 text-center text-yellow-500 font-bold text-sm">
                   {avgRate > 0 ? avgRate.toFixed(4) : "-"}
@@ -99,15 +104,19 @@ export default function CurrencyExchangesTable({ exchanges, onDelete, onEdit }) 
                   {currentRate > 0 ? currentRate.toFixed(4) : "-"}
                 </td>
                 <td className="py-4 px-4 text-right font-bold text-white text-sm">
-                  {formatCurrency(totalCurrentValue, "EUR")}
+                  {formatCurrency(openRowValue || totalCurrentValue, "EUR")}
                 </td>
                 <td className="py-4 px-4 text-right text-sm">
                   <div className="flex flex-col items-end gap-1">
-                    <span className={`text-lg font-bold ${totalDifference >= 0 ? "text-green-400" : "text-red-400"}`}>
-                      {totalAmount > 0 ? formatPercentage((totalDifference / totalAmount) * 100) : "-"}
+                    <span className={`text-lg font-bold ${(openRowDifference || totalDifference) >= 0 ? "text-green-400" : "text-red-400"}`}>
+                      {computedMetrics.summary.openCostEur > 0
+                        ? formatPercentage((openRowDifference || totalDifference) / computedMetrics.summary.openCostEur * 100)
+                        : totalAmount > 0
+                          ? formatPercentage((totalDifference / totalAmount) * 100)
+                          : "-"}
                     </span>
-                    <span className={`text-xs ${totalDifference >= 0 ? "text-green-300" : "text-red-300"}`}>
-                      {formatCurrency(Math.abs(totalDifference), "EUR")}
+                    <span className={`text-xs ${(openRowDifference || totalDifference) >= 0 ? "text-green-300" : "text-red-300"}`}>
+                      {formatCurrency(Math.abs(openRowDifference || totalDifference), "EUR")}
                     </span>
                   </div>
                 </td>
@@ -116,11 +125,14 @@ export default function CurrencyExchangesTable({ exchanges, onDelete, onEdit }) 
             )}
 
             {exchanges.map((exchange) => {
-              const isRealized = exchange.fromCurrency === "USD";
-              const isProfit = exchange.difference > 0;
-              const currentValueDisplay = isRealized
+              const rowMetrics = computedMetrics.byId.get(exchange.id);
+              const isRealized = rowMetrics?.mode === "closed" || exchange.fromCurrency === "USD";
+              const isProfit = (rowMetrics?.differenceEur ?? exchange.difference) > 0;
+              const currentValueDisplay = rowMetrics?.currentValueEur ?? (isRealized
                 ? exchange.amount * exchange.exchangeRate
-                : exchange.originalValue / exchange.currentRate;
+                : exchange.originalValue / exchange.currentRate);
+              const differenceDisplay = rowMetrics?.differenceEur ?? exchange.difference;
+              const percentageDisplay = rowMetrics?.percentage ?? exchange.percentage;
 
               return (
                 <tr
@@ -161,18 +173,14 @@ export default function CurrencyExchangesTable({ exchanges, onDelete, onEdit }) 
                     {formatCurrency(currentValueDisplay, "EUR")}
                   </td>
                   <td className="py-4 px-4 text-right text-sm">
-                    {isRealized ? (
-                      <span className="text-xs text-zinc-400">Sin calculo (cerrada)</span>
-                    ) : (
-                      <div className="flex flex-col items-end gap-1">
-                        <span className={`text-lg font-bold ${isProfit ? "text-green-400" : "text-red-400"}`}>
-                          {formatPercentage(exchange.percentage)}
-                        </span>
-                        <span className={`text-xs ${isProfit ? "text-green-300" : "text-red-300"}`}>
-                          {formatCurrency(Math.abs(exchange.difference), "EUR")}
-                        </span>
-                      </div>
-                    )}
+                    <div className="flex flex-col items-end gap-1">
+                      <span className={`text-lg font-bold ${isProfit ? "text-green-400" : "text-red-400"}`}>
+                        {formatPercentage(percentageDisplay)}
+                      </span>
+                      <span className={`text-xs ${isProfit ? "text-green-300" : "text-red-300"}`}>
+                        {formatCurrency(Math.abs(differenceDisplay), "EUR")}
+                      </span>
+                    </div>
                   </td>
                   <td className="py-4 px-4 text-center relative">
                     <div ref={openMenuId === exchange.id ? menuRef : null}>
