@@ -21,7 +21,19 @@ export default function RealizedGainsChart({ data, exchangeRate = 1.1 }) {
       })
     );
     const cumulativeGains = data.map(item => item.cumulativeGain * usdToEur);
-    const tradeGains = data.map(item => item.gainLoss * usdToEur);
+    const tradeGains = data.map((item) => {
+      const value = item.gainLoss * usdToEur;
+
+      return {
+        value,
+        itemStyle: {
+          color: value >= 0 ? 'rgba(34, 197, 94, 0.7)' : 'rgba(239, 68, 68, 0.7)',
+          borderColor: value >= 0 ? 'rgba(34, 197, 94, 1)' : 'rgba(239, 68, 68, 1)',
+          borderWidth: 2,
+          borderRadius: value >= 0 ? [4, 4, 0, 0] : [0, 0, 4, 4],
+        },
+      };
+    });
 
     const option = {
       backgroundColor: 'transparent',
@@ -144,16 +156,6 @@ export default function RealizedGainsChart({ data, exchangeRate = 1.1 }) {
           name: 'Ganancia por Operación',
           type: 'bar',
           data: tradeGains,
-          itemStyle: {
-            color: (params) => {
-              return params.value >= 0 ? 'rgba(34, 197, 94, 0.7)' : 'rgba(239, 68, 68, 0.7)';
-            },
-            borderColor: (params) => {
-              return params.value >= 0 ? 'rgba(34, 197, 94, 1)' : 'rgba(239, 68, 68, 1)';
-            },
-            borderWidth: 2,
-            borderRadius: [4, 4, 0, 0],
-          },
           barWidth: '40%',
           barMaxWidth: 30,
         },

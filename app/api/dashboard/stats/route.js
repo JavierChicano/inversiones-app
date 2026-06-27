@@ -217,6 +217,30 @@ export async function GET(request) {
         const currentValue = openQuantity * currentPrice;
         totalCurrentValue += currentValue;
         currentInvested += openCost; // Sumar el costo de posiciones abiertas
+        const now = new Date();
+        const openLots = [...position.buyQueue]
+          .sort((a, b) => new Date(b.date) - new Date(a.date))
+          .map((buy) => {
+            const invested =
+              buy.quantity * buy.pricePerUnit + (buy.fees * buy.quantity) / buy.originalQuantity;
+            const lotCurrentValue = buy.quantity * currentPrice;
+            const lotHoldingDays = buy.date
+              ? Math.floor((now - new Date(buy.date)) / (1000 * 60 * 60 * 24))
+              : 0;
+
+            return {
+              date: buy.date,
+              quantity: buy.quantity,
+              originalQuantity: buy.originalQuantity,
+              pricePerUnit: buy.pricePerUnit,
+              fees: buy.fees,
+              invested,
+              currentValue: lotCurrentValue,
+              gainLoss: lotCurrentValue - invested,
+              gainLossPercent: invested > 0 ? ((lotCurrentValue - invested) / invested) * 100 : 0,
+              holdingDays: lotHoldingDays,
+            };
+          });
 
         const oldestOpenBuyDate = position.buyQueue.reduce((oldest, buy) => {
           if (!oldest) return buy.date;
@@ -240,6 +264,7 @@ export async function GET(request) {
             ? ((currentValue - openCost) / openCost) * 100
             : 0,
           avgHoldingDays: holdingDays,
+          openLots,
         });
       }
     });

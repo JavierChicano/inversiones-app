@@ -207,8 +207,11 @@ export default function StockDistributionChart({ data, exchangeRate = 1.1 }) {
                       {item.label}
                     </span>
                   </div>
-                  <span className="text-sm text-white font-semibold tabular-nums text-right">
-                    {formatCurrencyUSD(item.value)} · {percentage.toFixed(1)}%
+                  <span className="text-sm text-white font-semibold tabular-nums text-right whitespace-nowrap">
+                    <span className="hidden xl:inline">
+                      {formatCurrencyUSD(item.value)} ·{' '}
+                    </span>
+                    {percentage.toFixed(1)}%
                   </span>
                 </div>
               );

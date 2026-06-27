@@ -142,7 +142,13 @@ export default function ClosedPositionsTable({ data }) {
                 {expanded[position.ticker] && (position.trades || []).length > 0 && (
                   (position.trades || []).map((trade, tIndex) => (
                     <tr key={`${position.ticker}-trade-${tIndex}`} className="bg-zinc-900/40">
-                      <td className="py-2 px-4 pl-12 text-zinc-300 text-sm">{new Date(trade.date).toLocaleString()}</td>
+                      <td className="py-2 px-4 pl-12 text-zinc-300 text-sm">
+                        {new Date(trade.date).toLocaleDateString('es-ES', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                        })}
+                      </td>
                       <td className="py-2 px-4 text-zinc-400 text-sm">{getAssetTypeLabel(position.type)}</td>
                       <td className="py-2 px-4 text-right text-white text-sm">1</td>
                       <td className="py-2 px-4 text-right text-sm">
