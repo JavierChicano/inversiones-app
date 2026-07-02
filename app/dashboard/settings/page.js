@@ -9,16 +9,27 @@ export default function SettingsPage() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPasswords, setShowPasswords] = useState({
+    current: false,
+    new: false,
+    confirm: false,
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState('');
+  const [exportSuccess, setExportSuccess] = useState('');
+
+  const togglePasswordVisibility = (field) => {
+    setShowPasswords((prev) => ({
+      ...prev,
+      [field]: !prev[field],
+    }));
+  };
 
   const handleChangePassword = async (e) => {
     e.preventDefault();
     setError('');
-    setSuccess('');
 
     if (!token) {
       setError('No autorizado. Inicia sesión de nuevo.');
@@ -51,7 +62,6 @@ export default function SettingsPage() {
         throw new Error(data.error || 'No se pudo actualizar la contraseña');
       }
 
-      setSuccess('Contraseña actualizada correctamente.');
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
@@ -94,6 +104,7 @@ export default function SettingsPage() {
 
   const handleExportData = async () => {
     setExportError('');
+    setExportSuccess('');
     setIsExporting(true);
 
     try {
@@ -193,9 +204,9 @@ export default function SettingsPage() {
       const filename = `inversiones-export-${now.toISOString().split('T')[0]}.csv`;
 
       downloadFile(allContent, filename);
-      setSuccess('Datos exportados exitosamente.');
+      setExportSuccess('Datos exportados exitosamente.');
 
-      setTimeout(() => setSuccess(''), 5000);
+      setTimeout(() => setExportSuccess(''), 5000);
     } catch (err) {
       setExportError(err.message || 'Error al exportar datos');
     } finally {
@@ -211,75 +222,17 @@ export default function SettingsPage() {
           Personaliza tu experiencia y preferencias.
         </p>
 
-        <div className="bg-zinc-800/50 rounded-lg p-6 border border-zinc-700/50">
-          <h3 className="text-lg font-semibold text-white mb-4">Cambiar contraseña</h3>
-
-          {error && (
-            <div className="mb-4 bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg text-sm">
-              {error}
-            </div>
-          )}
-
-          {success && (
-            <div className="mb-4 bg-green-500/10 border border-green-500/20 text-green-400 px-4 py-3 rounded-lg text-sm">
-              {success}
-            </div>
-          )}
-
-          <form onSubmit={handleChangePassword} className="space-y-4 max-w-xl">
-            <div>
-              <label className="block text-sm text-zinc-300 mb-2">Contraseña actual</label>
-              <input
-                type="password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                className="w-full bg-zinc-900/70 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary"
-                autoComplete="current-password"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm text-zinc-300 mb-2">Nueva contraseña</label>
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full bg-zinc-900/70 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary"
-                autoComplete="new-password"
-                minLength={6}
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm text-zinc-300 mb-2">Confirmar nueva contraseña</label>
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full bg-zinc-900/70 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary"
-                autoComplete="new-password"
-                minLength={6}
-                required
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="btn-primary rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? 'Actualizando...' : 'Actualizar contraseña'}
-            </button>
-          </form>
-        </div>
-
         <div className="mt-8 bg-zinc-800/50 rounded-lg p-6 border border-zinc-700/50">
           <h3 className="text-lg font-semibold text-white mb-4">Exportar datos</h3>
           <p className="text-zinc-400 text-sm mb-6">
             Descarga un archivo CSV con todas tus transacciones, posiciones cerradas y estadísticas de inversión.
           </p>
+
+          {exportSuccess && (
+            <div className="mb-4 bg-green-500/10 border border-green-500/20 text-green-400 px-4 py-3 rounded-lg text-sm">
+              {exportSuccess}
+            </div>
+          )}
 
           {exportError && (
             <div className="mb-4 bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg text-sm">
@@ -297,6 +250,121 @@ export default function SettingsPage() {
             </svg>
             {isExporting ? 'Exportando...' : 'Descargar CSV'}
           </button>
+        </div>
+
+        <div className="mt-8 bg-zinc-800/50 rounded-lg p-6 border border-zinc-700/50">
+          <h3 className="text-lg font-semibold text-white mb-4">Cambiar contraseña</h3>
+
+          {error && (
+            <div className="mb-4 bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg text-sm">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleChangePassword} className="space-y-4 max-w-xl">
+            <div>
+              <label className="block text-sm text-zinc-300 mb-2">Contraseña actual</label>
+              <div className="relative">
+                <input
+                  type={showPasswords.current ? 'text' : 'password'}
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  className="w-full bg-zinc-900/70 border border-zinc-700 rounded-lg px-3 py-2 pr-11 text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                  autoComplete="current-password"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => togglePasswordVisibility('current')}
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-zinc-400 hover:text-white transition-colors"
+                  aria-label={showPasswords.current ? 'Ocultar contraseña actual' : 'Mostrar contraseña actual'}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    {showPasswords.current ? (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.956 9.956 0 012.255-3.592M6.223 6.223A9.956 9.956 0 0112 5c4.478 0 8.268 2.943 9.543 7a9.979 9.979 0 01-4.293 5.213M15 12a3 3 0 11-3-3m0 0L3 3m18 18l-4.5-4.5M12 12l-3-3" />
+                    ) : (
+                      <>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </>
+                    )}
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm text-zinc-300 mb-2">Nueva contraseña</label>
+              <div className="relative">
+                <input
+                  type={showPasswords.new ? 'text' : 'password'}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full bg-zinc-900/70 border border-zinc-700 rounded-lg px-3 py-2 pr-11 text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                  autoComplete="new-password"
+                  minLength={6}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => togglePasswordVisibility('new')}
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-zinc-400 hover:text-white transition-colors"
+                  aria-label={showPasswords.new ? 'Ocultar nueva contraseña' : 'Mostrar nueva contraseña'}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    {showPasswords.new ? (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.956 9.956 0 012.255-3.592M6.223 6.223A9.956 9.956 0 0112 5c4.478 0 8.268 2.943 9.543 7a9.979 9.979 0 01-4.293 5.213M15 12a3 3 0 11-3-3m0 0L3 3m18 18l-4.5-4.5M12 12l-3-3" />
+                    ) : (
+                      <>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </>
+                    )}
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm text-zinc-300 mb-2">Confirmar nueva contraseña</label>
+              <div className="relative">
+                <input
+                  type={showPasswords.confirm ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full bg-zinc-900/70 border border-zinc-700 rounded-lg px-3 py-2 pr-11 text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                  autoComplete="new-password"
+                  minLength={6}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => togglePasswordVisibility('confirm')}
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-zinc-400 hover:text-white transition-colors"
+                  aria-label={showPasswords.confirm ? 'Ocultar confirmación de contraseña' : 'Mostrar confirmación de contraseña'}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    {showPasswords.confirm ? (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.956 9.956 0 012.255-3.592M6.223 6.223A9.956 9.956 0 0112 5c4.478 0 8.268 2.943 9.543 7a9.979 9.979 0 01-4.293 5.213M15 12a3 3 0 11-3-3m0 0L3 3m18 18l-4.5-4.5M12 12l-3-3" />
+                    ) : (
+                      <>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </>
+                    )}
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="btn-primary rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSubmitting ? 'Actualizando...' : 'Actualizar contraseña'}
+            </button>
+          </form>
         </div>
       </div>
     </DashboardLayout>
