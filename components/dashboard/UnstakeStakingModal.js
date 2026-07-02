@@ -20,21 +20,24 @@ export default function UnstakeStakingModal({ isOpen, onClose, onSubmit, positio
 
   const principalAmount = Number(position?.amountStaked || 0);
   const currentAmount = Number(amountToUnstake || 0);
-  const estimatedReward = useMemo(() => {
+  const pendingReward = Number(position?.pendingRewardAmount || 0);
+  const claimableRewardIfClosed = useMemo(() => {
     if (!position || !principalAmount || principalAmount <= 0) return 0;
 
-    const startDate = new Date(position.startDate);
+    const startDate = new Date(position.lastAccrualAt || position.startDate);
     const daysHeld = Math.max(
       1,
       Math.floor((Date.now() - startDate.getTime()) / (1000 * 60 * 60 * 24))
     );
 
-    return Number(
+    const accruedSinceLastChange = Number(
       (principalAmount * (Number(position.manualApy || 0) / 100) * (daysHeld / 365)).toFixed(8)
     );
-  }, [position, principalAmount]);
 
-  const maxAmount = Number((principalAmount + estimatedReward).toFixed(8));
+    return Number((pendingReward + accruedSinceLastChange).toFixed(8));
+  }, [position, principalAmount, pendingReward]);
+
+  const maxAmount = Number(principalAmount.toFixed(8));
 
   useEffect(() => {
     if (isOpen && position) {
@@ -114,15 +117,15 @@ export default function UnstakeStakingModal({ isOpen, onClose, onSubmit, positio
             </div>
             <div className="mt-3 rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-3 text-xs text-zinc-300">
               <div className="flex items-center justify-between">
-                <span className="text-zinc-500">Recompensa estimada</span>
+                <span className="text-zinc-500">Recompensa pendiente</span>
                 <span className="font-semibold text-emerald-300">
-                  {formatCoin(estimatedReward)} {position.assetTicker}
+                  {formatCoin(pendingReward)} {position.assetTicker}
                 </span>
               </div>
               <div className="mt-1 flex items-center justify-between">
-                <span className="text-zinc-500">Total estimado a retirar</span>
+                <span className="text-zinc-500">Total estimado si cierras la posición</span>
                 <span className="font-semibold text-white">
-                  {formatCoin(maxAmount)} {position.assetTicker}
+                  {formatCoin(maxAmount + claimableRewardIfClosed)} {position.assetTicker}
                 </span>
               </div>
             </div>
@@ -130,7 +133,7 @@ export default function UnstakeStakingModal({ isOpen, onClose, onSubmit, positio
 
           <div>
             <label className="mb-2 block text-sm font-medium text-zinc-400">
-              Cantidad total a retirar <span className="text-red-400">*</span>
+              Cantidad de principal a retirar <span className="text-red-400">*</span>
             </label>
             <input
               type="number"
@@ -143,15 +146,15 @@ export default function UnstakeStakingModal({ isOpen, onClose, onSubmit, positio
               className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-cyan-500 focus:outline-none"
             />
             <p className="mt-2 text-xs text-zinc-500">
-              Si introduces una cantidad superior al principal, el excedente se interpreta como recompensa adicional.
+              Si retiras todo el principal, además se liberan y cobran las recompensas pendientes.
             </p>
           </div>
 
           <div className="grid grid-cols-2 gap-3 rounded-xl border border-zinc-800 bg-zinc-950/60 p-4 text-sm">
             <div>
-              <p className="text-xs uppercase tracking-wide text-zinc-500">Recompensa estimada</p>
+              <p className="text-xs uppercase tracking-wide text-zinc-500">Recompensa estimada al cerrar</p>
               <p className="mt-1 font-semibold text-white">
-                {formatCoin(estimatedReward)} {position.assetTicker}
+                {formatCoin(claimableRewardIfClosed)} {position.assetTicker}
               </p>
             </div>
             <div>

@@ -98,7 +98,9 @@ export default function AddStakingPositionModal({ isOpen, onClose, onSubmit, ass
         <div className="flex items-center justify-between border-b border-zinc-800 px-6 py-4">
           <div>
             <h3 className="text-lg font-semibold text-white">Nueva posición de staking</h3>
-            <p className="text-sm text-zinc-400">Registra APY manual y período de bloqueo</p>
+            <p className="text-sm text-zinc-400">
+              Si ya existe una posición activa para ese asset, la cantidad se suma a la misma posición.
+            </p>
           </div>
           <button
             type="button"

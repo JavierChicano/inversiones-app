@@ -13,6 +13,24 @@ function formatCoin(value, ticker) {
   return `${(Number(value) || 0).toFixed(6)} ${ticker}`;
 }
 
+function getEventLabel(eventType) {
+  if (eventType === 'CLOSE') return 'Cierre';
+  if (eventType === 'UNSTAKE') return 'Retirada';
+  return 'Alta';
+}
+
+function getEventBadgeClass(eventType) {
+  if (eventType === 'CLOSE') {
+    return 'bg-rose-500/15 text-rose-300';
+  }
+
+  if (eventType === 'UNSTAKE') {
+    return 'bg-amber-500/15 text-amber-300';
+  }
+
+  return 'bg-cyan-500/15 text-cyan-300';
+}
+
 function formatDate(value) {
   return new Date(value).toLocaleDateString('es-ES', {
     year: 'numeric',
@@ -41,8 +59,11 @@ export default function StakingHistoryTable({ history = [] }) {
             <th className="px-4 py-3 text-left">Fecha</th>
             <th className="px-4 py-3 text-left">Evento</th>
             <th className="px-4 py-3 text-left">Asset</th>
-            <th className="px-4 py-3 text-right">Principal</th>
-            <th className="px-4 py-3 text-right">Recompensa</th>
+            <th className="px-4 py-3 text-right">Antes</th>
+            <th className="px-4 py-3 text-right">Movimiento</th>
+            <th className="px-4 py-3 text-right">Después</th>
+            <th className="px-4 py-3 text-right">Recompensa periodo</th>
+            <th className="px-4 py-3 text-right">Recompensa cobrada</th>
             <th className="px-4 py-3 text-right">APY real</th>
             <th className="px-4 py-3 text-right">Días</th>
           </tr>
@@ -52,24 +73,37 @@ export default function StakingHistoryTable({ history = [] }) {
             <tr key={event.id} className="border-b border-zinc-800/60 text-zinc-200 last:border-b-0">
               <td className="px-4 py-4 text-zinc-400">{formatDate(event.createdAt)}</td>
               <td className="px-4 py-4">
-                <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                  event.eventType === 'UNSTAKE'
-                    ? 'bg-amber-500/15 text-amber-300'
-                    : 'bg-cyan-500/15 text-cyan-300'
-                }`}>
-                  {event.eventType === 'UNSTAKE' ? 'Retirada' : 'Alta'}
+                <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${getEventBadgeClass(event.eventType)}`}>
+                  {getEventLabel(event.eventType)}
                 </span>
-                {event.eventType === 'UNSTAKE' && (
-                  <div className="mt-1 text-xs text-zinc-500">Principal liberado + recompensa a coste 0</div>
+                {(event.note || event.eventType === 'CLOSE') && (
+                  <div className="mt-1 text-xs text-zinc-500">
+                    {event.note || 'Cierre total de la posición'}
+                  </div>
                 )}
               </td>
               <td className="px-4 py-4 font-semibold text-white">{event.assetTicker}</td>
               <td className="px-4 py-4 text-right text-zinc-300">
-                {formatCoin(event.principalAmount, event.assetTicker)}
+                {formatCoin(event.principalBefore, event.assetTicker)}
+              </td>
+              <td className="px-4 py-4 text-right font-semibold text-zinc-100">
+                {Number(event.principalDelta || event.principalAmount || 0) >= 0 ? '+' : ''}
+                {formatCoin(event.principalDelta || event.principalAmount || 0, event.assetTicker)}
+              </td>
+              <td className="px-4 py-4 text-right text-zinc-300">
+                {formatCoin(event.principalAfter, event.assetTicker)}
               </td>
               <td className="px-4 py-4 text-right text-emerald-300">
-                {formatCoin(event.rewardAmount, event.assetTicker)}
-                <div className="text-xs text-zinc-500">{formatUsd((event.rewardAmount || 0) * (event.currentPrice || 0))}</div>
+                {formatCoin(event.rewardAccrued || event.rewardAmount, event.assetTicker)}
+                <div className="text-xs text-zinc-500">
+                  {formatUsd((event.rewardAccrued || event.rewardAmount || 0) * (event.currentPrice || 0))}
+                </div>
+              </td>
+              <td className="px-4 py-4 text-right text-cyan-300">
+                {formatCoin(event.rewardClaimed || 0, event.assetTicker)}
+                <div className="text-xs text-zinc-500">
+                  {formatUsd((event.rewardClaimed || 0) * (event.currentPrice || 0))}
+                </div>
               </td>
               <td className="px-4 py-4 text-right text-zinc-300">
                 {Number(event.realizedApy || 0).toFixed(2)}%

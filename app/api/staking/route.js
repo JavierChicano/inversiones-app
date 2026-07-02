@@ -53,7 +53,7 @@ export async function GET(request) {
       findStakingPositionsByUser(userId),
       findAllUserTransactions(userId),
       findAllAssets(),
-      findStakingEventsByUser(userId, 50),
+      findStakingEventsByUser(userId, 500),
     ]);
 
     const assetMap = allAssets.reduce((acc, asset) => {
@@ -67,6 +67,16 @@ export async function GET(request) {
     }, {});
 
     const cryptoHoldings = buildCryptoHoldings(transactions, assetTypeMap);
+    const movementsByPositionId = stakingEvents.reduce((acc, event) => {
+      if (!event.stakingPositionId) return acc;
+
+      if (!acc[event.stakingPositionId]) {
+        acc[event.stakingPositionId] = [];
+      }
+
+      acc[event.stakingPositionId].push(event);
+      return acc;
+    }, {});
 
     const ownedByTicker = Object.entries(cryptoHoldings)
       .filter(([, quantity]) => quantity > 0)
@@ -97,6 +107,13 @@ export async function GET(request) {
         assetName: asset?.name || position.assetTicker,
         currentPrice,
         projection,
+        movements: (movementsByPositionId[position.id] || [])
+          .map((event) => ({
+            ...event,
+            currentPrice,
+            createdAt: new Date(event.createdAt).toISOString(),
+          }))
+          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
       };
     });
 
@@ -253,8 +270,10 @@ export async function POST(request) {
 
     return NextResponse.json(
       {
-        message: 'Posición de staking creada exitosamente',
-        stakingPositionId: result.lastInsertRowid ? Number(result.lastInsertRowid) : null,
+        message: result.action === 'updated'
+          ? 'Posición de staking actualizada exitosamente'
+          : 'Posición de staking creada exitosamente',
+        stakingPositionId: result.position?.id || null,
       },
       { status: 201 }
     );
