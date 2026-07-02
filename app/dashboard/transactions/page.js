@@ -15,6 +15,7 @@ export default function TransactionsPage() {
   
   // Estados de filtros
   const [filterType, setFilterType] = useState('all'); 
+  const [filterAssetType, setFilterAssetType] = useState('all');
   const [filterTicker, setFilterTicker] = useState('');
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
@@ -71,6 +72,14 @@ export default function TransactionsPage() {
   const filteredTransactions = useMemo(() => {
     let result = [...transactions];
 
+    // Filtrar por tipo de asset
+    if (filterAssetType !== 'all') {
+      result = result.filter(t => {
+        const assetType = (t.asset?.type || t.assetType || 'STOCK').toUpperCase();
+        return assetType === filterAssetType;
+      });
+    }
+
     // Filtrar por tipo
     if (filterType !== 'all') {
       result = result.filter(t => t.type === filterType);
@@ -97,10 +106,11 @@ export default function TransactionsPage() {
     }
 
     return result;
-  }, [transactions, filterType, filterTicker, filterDateFrom, filterDateTo]);
+  }, [transactions, filterType, filterAssetType, filterTicker, filterDateFrom, filterDateTo]);
 
   const clearFilters = () => {
     setFilterType('all');
+    setFilterAssetType('all');
     setFilterTicker('');
     setFilterDateFrom('');
     setFilterDateTo('');
@@ -152,7 +162,21 @@ export default function TransactionsPage() {
 
             {showFilters && (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mt-4">
+                  {/* Filtro por tipo de asset */}
+                  <div>
+                    <label className="block text-sm text-zinc-400 mb-2">Tipo Asset</label>
+                    <select
+                      value={filterAssetType}
+                      onChange={(e) => setFilterAssetType(e.target.value)}
+                      className="w-full bg-zinc-800 text-white border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="all">Todos</option>
+                      <option value="CRYPTO">Crypto</option>
+                      <option value="STOCK">Stock</option>
+                    </select>
+                  </div>
+
                   {/* Filtro por tipo */}
                   <div>
                     <label className="block text-sm text-zinc-400 mb-2">Tipo de Operación</label>
@@ -167,40 +191,40 @@ export default function TransactionsPage() {
                     </select>
                   </div>
 
-              {/* Filtro por ticker */}
-              <div>
-                <label className="block text-sm text-zinc-400 mb-2">Ticker</label>
-                <input
-                  type="text"
-                  value={filterTicker}
-                  onChange={(e) => setFilterTicker(e.target.value)}
-                  placeholder="Buscar ticker..."
-                  className="w-full bg-zinc-800 text-white border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-zinc-500"
-                />
-              </div>
+                  {/* Filtro por ticker */}
+                  <div>
+                    <label className="block text-sm text-zinc-400 mb-2">Ticker</label>
+                    <input
+                      type="text"
+                      value={filterTicker}
+                      onChange={(e) => setFilterTicker(e.target.value)}
+                      placeholder="Buscar ticker..."
+                      className="w-full bg-zinc-800 text-white border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-zinc-500"
+                    />
+                  </div>
 
-              {/* Filtro fecha desde */}
-              <div>
-                <label className="block text-sm text-zinc-400 mb-2">Desde</label>
-                <input
-                  type="date"
-                  value={filterDateFrom}
-                  onChange={(e) => setFilterDateFrom(e.target.value)}
-                  className="w-full bg-zinc-800 text-white border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
+                  {/* Filtro fecha desde */}
+                  <div>
+                    <label className="block text-sm text-zinc-400 mb-2">Desde</label>
+                    <input
+                      type="date"
+                      value={filterDateFrom}
+                      onChange={(e) => setFilterDateFrom(e.target.value)}
+                      className="w-full bg-zinc-800 text-white border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
 
-              {/* Filtro fecha hasta */}
-              <div>
-                <label className="block text-sm text-zinc-400 mb-2">Hasta</label>
-                <input
-                  type="date"
-                  value={filterDateTo}
-                  onChange={(e) => setFilterDateTo(e.target.value)}
-                  className="w-full bg-zinc-800 text-white border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
+                  {/* Filtro fecha hasta */}
+                  <div>
+                    <label className="block text-sm text-zinc-400 mb-2">Hasta</label>
+                    <input
+                      type="date"
+                      value={filterDateTo}
+                      onChange={(e) => setFilterDateTo(e.target.value)}
+                      className="w-full bg-zinc-800 text-white border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
 
             {/* Contador de resultados */}
             <div className="mt-4 text-sm text-zinc-400">

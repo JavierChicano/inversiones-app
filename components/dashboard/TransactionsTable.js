@@ -7,7 +7,9 @@ export default function TransactionsTable({ data, onTransactionUpdated }) {
   const [sellModalData, setSellModalData] = useState(null);
   const [editModalData, setEditModalData] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
   const menuRef = useRef(null);
+  const itemsPerPage = 15;
 
   // Cerrar menú al hacer clic fuera
   useEffect(() => {
@@ -25,6 +27,11 @@ export default function TransactionsTable({ data, onTransactionUpdated }) {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [openMenuId]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+    setOpenMenuId(null);
+  }, [data]);
 
   if (!data || data.length === 0) {
     return (
@@ -85,6 +92,11 @@ export default function TransactionsTable({ data, onTransactionUpdated }) {
   const sortedData = [...data].sort((a, b) => 
     new Date(b.date) - new Date(a.date)
   );
+
+  const totalPages = Math.max(1, Math.ceil(sortedData.length / itemsPerPage));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (safeCurrentPage - 1) * itemsPerPage;
+  const visibleData = sortedData.slice(startIndex, startIndex + itemsPerPage);
 
   // Calcular totales
   const totalBuyAmount = sortedData
@@ -148,7 +160,7 @@ export default function TransactionsTable({ data, onTransactionUpdated }) {
               </tr>
             </thead>
             <tbody>
-              {sortedData.map((transaction, index) => {
+              {visibleData.map((transaction, index) => {
                 const txType = getTransactionTypeStyle(transaction.type);
                 const totalAmount = transaction.quantity * transaction.pricePerUnit;
                 const totalWithFees = transaction.type === 'BUY' 
@@ -273,6 +285,36 @@ export default function TransactionsTable({ data, onTransactionUpdated }) {
             </tfoot>
           </table>
         </div>
+
+        {sortedData.length > itemsPerPage && (
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4 pt-4 border-t border-zinc-800">
+            <div className="text-sm text-zinc-400">
+              Mostrando <span className="text-white font-semibold">{startIndex + 1}</span> a <span className="text-white font-semibold">{Math.min(startIndex + itemsPerPage, sortedData.length)}</span> de <span className="text-white font-semibold">{sortedData.length}</span> transacciones
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
+                disabled={safeCurrentPage === 1}
+                className="px-3 py-2 text-sm rounded-lg border border-zinc-700 bg-zinc-800 text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed hover:bg-zinc-700"
+              >
+                Anterior
+              </button>
+
+              <div className="flex items-center gap-1 text-sm text-zinc-400">
+                {safeCurrentPage} / {totalPages}
+              </div>
+
+              <button
+                onClick={() => setCurrentPage((page) => Math.min(page + 1, totalPages))}
+                disabled={safeCurrentPage === totalPages}
+                className="px-3 py-2 text-sm rounded-lg border border-zinc-700 bg-zinc-800 text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed hover:bg-zinc-700"
+              >
+                Siguiente
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Modales */}
