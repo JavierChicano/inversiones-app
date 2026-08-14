@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { EyeIcon, EyeOffIcon } from './icons';
+import { useBackdropClose } from '@/lib/hooks/useBackdropClose';
 
 export default function AuthModal() {
   const router = useRouter();
@@ -15,6 +16,7 @@ export default function AuthModal() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const backdropProps = useBackdropClose(() => handleClose());
 
   if (!isAuthModalOpen) return null;
 
@@ -89,7 +91,7 @@ export default function AuthModal() {
   return (
     <div 
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm"
-      onClick={handleClose}
+      {...backdropProps}
     >
       <div 
         className="bg-card rounded-lg shadow-2xl w-full max-w-md p-8 relative border border-border"

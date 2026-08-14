@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useBackdropClose } from '@/lib/hooks/useBackdropClose';
 
 export default function TransactionsTable({ data, onTransactionUpdated }) {
   const [openMenuId, setOpenMenuId] = useState(null);
@@ -354,6 +355,7 @@ function SellModal({ transaction, onClose, onSuccess }) {
   const [fees, setFees] = useState('0');
   const [loading, setLoading] = useState(false);
   const [loadingPrice, setLoadingPrice] = useState(false);
+  const backdropProps = useBackdropClose(onClose);
 
   // Obtener precio actual del asset cuando se abre el modal
   useEffect(() => {
@@ -423,7 +425,7 @@ function SellModal({ transaction, onClose, onSuccess }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" {...backdropProps}>
       <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-xl font-bold text-white mb-4">Vender {transaction.assetTicker}</h3>
         
@@ -544,6 +546,7 @@ function EditModal({ transaction, onClose, onSuccess }) {
     date: '',
   });
   const [loading, setLoading] = useState(false);
+  const backdropProps = useBackdropClose(onClose);
 
   // Inicializar form data cuando cambia la transacción
   useEffect(() => {
@@ -602,7 +605,7 @@ function EditModal({ transaction, onClose, onSuccess }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" {...backdropProps}>
       <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-xl font-bold text-white mb-4">Editar Transacción</h3>
         
@@ -689,10 +692,12 @@ function EditModal({ transaction, onClose, onSuccess }) {
 
 // Modal de confirmación de borrado
 function DeleteConfirmModal({ transaction, onClose, onConfirm }) {
+  const backdropProps = useBackdropClose(onClose);
+
   if (!transaction) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" {...backdropProps}>
       <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-xl font-bold text-white mb-4">Confirmar Eliminación</h3>
         <p className="text-zinc-300 mb-6">

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { PlusIcon, CloseIcon } from '../icons';
+import { useBackdropClose } from '@/lib/hooks/useBackdropClose';
 
 export default function QuickAddCurrencyExchange({ onExchangeAdded }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -13,6 +14,7 @@ export default function QuickAddCurrencyExchange({ onExchangeAdded }) {
     date: new Date().toISOString().split('T')[0],
   });
   const [loading, setLoading] = useState(false);
+  const backdropProps = useBackdropClose(() => setIsOpen(false));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -109,7 +111,7 @@ export default function QuickAddCurrencyExchange({ onExchangeAdded }) {
       {isOpen && (
         <div 
           className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-          onClick={() => setIsOpen(false)}
+          {...backdropProps}
         >
           <div 
             className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto"

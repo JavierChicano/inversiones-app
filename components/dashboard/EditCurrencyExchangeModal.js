@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { CloseIcon } from '../icons';
+import { useBackdropClose } from '@/lib/hooks/useBackdropClose';
 
 export default function EditCurrencyExchangeModal({ exchange, onClose, onSuccess }) {
   const [formData, setFormData] = useState({
@@ -12,6 +13,7 @@ export default function EditCurrencyExchangeModal({ exchange, onClose, onSuccess
     date: '',
   });
   const [loading, setLoading] = useState(false);
+  const backdropProps = useBackdropClose(onClose);
 
   // Inicializar form data cuando cambia el exchange
   useEffect(() => {
@@ -108,7 +110,7 @@ export default function EditCurrencyExchangeModal({ exchange, onClose, onSuccess
   return (
     <div 
       className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-      onClick={onClose}
+      {...backdropProps}
     >
       <div 
         className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto"
