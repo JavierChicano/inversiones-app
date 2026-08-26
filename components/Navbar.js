@@ -112,11 +112,11 @@ export default function Navbar() {
                       </p>
                     </div>
                     <Link
-                      href="/dashboard/settings"
+                      href="/dashboard/profile"
                       onClick={() => setIsDropdownOpen(false)}
                       className="block px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-800 transition-colors"
                     >
-                      Ajustes
+                      Perfil
                     </Link>
                     <button
                       onClick={() => {

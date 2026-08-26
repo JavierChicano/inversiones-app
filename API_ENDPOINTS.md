@@ -69,3 +69,15 @@ app/api/
 - ✅ **Sin duplicación** = una sola fuente de verdad
 - ✅ **Mejor rendimiento** = menos consultas innecesarias
 - ✅ **Más claro** = flujo de datos simplificado
+
+### Perfil / Configuración
+- `GET /api/profile/contributions` - Disciplina de aportación (serie mensual EUR + métricas)
+  - **Usado en**: app/dashboard/profile/page.js (ContributionDisciplineChart)
+- `GET /api/reports` - Listar informes (radiografías de cartera) del usuario, sin HTML
+  - **Usado en**: components/profile/ReportsSection.js
+- `POST /api/reports` - Subir un informe HTML (`{ title, periodStart: 'YYYY-MM', periodEnd: 'YYYY-MM', html }`, máx. 4 MB)
+  - **Usado en**: components/profile/ReportsSection.js
+- `DELETE /api/reports/[id]` - Eliminar un informe
+  - **Usado en**: components/profile/ReportsSection.js
+- `GET /api/reports/[id]/view` - Devuelve el HTML del informe (auth por cabecera o cookie `auth_token`, para abrir en pestaña nueva)
+  - **Usado en**: components/profile/ReportsSection.js (botón Ver)

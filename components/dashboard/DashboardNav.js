@@ -8,7 +8,7 @@ import {
   GridIcon,
   ClipboardListIcon,
   BarChartIcon,
-  SettingsIcon,
+  UserIcon,
   RefreshIcon,
   ChevronRightIcon,
   WalletGrowthIcon,
@@ -144,10 +144,10 @@ export default function DashboardNav() {
       icon: <WatchlistIcon className="w-5 h-5" />,
     },
     {
-      id: "settings",
-      name: "Configuración",
-      href: "/dashboard/settings",
-      icon: <SettingsIcon className="w-5 h-5" />,
+      id: "profile",
+      name: "Perfil",
+      href: "/dashboard/profile",
+      icon: <UserIcon className="w-5 h-5" />,
     },
   ];
 
