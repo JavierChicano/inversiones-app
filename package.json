@@ -6,9 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:dump": "bun run scripts/db/dump.ts",
+    "db:restore": "bun run scripts/db/restore.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1121.0",
     "@libsql/client": "^0.15.15",
     "@tursodatabase/database": "^0.3.2",
     "@vercel/analytics": "^1.6.1",

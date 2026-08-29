@@ -1,0 +1,76 @@
+name: Restaurar base de datos desde backup
+
+# Solo manual. Sustituye TODOS los datos de Turso por el contenido del dump indicado.
+on:
+  workflow_dispatch:
+    inputs:
+      backup_file:
+        description: 'Nombre del fichero en R2 (ej. backup-01-09-2026.sql)'
+        required: true
+        type: string
+      confirm:
+        description: 'Escribe RESTAURAR para confirmar (se borran los datos actuales)'
+        required: true
+        type: string
+
+jobs:
+  restore-db:
+    runs-on: ubuntu-latest
+
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+      AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+      R2_ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+      R2_BUCKET: ${{ secrets.R2_BUCKET }}
+      TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+      TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+
+    steps:
+      - name: Comprobar confirmación
+        if: ${{ inputs.confirm != 'RESTAURAR' }}
+        run: |
+          echo "❌ Debes escribir RESTAURAR en el campo de confirmación"
+          exit 1
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Instalar Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Instalar dependencias
+        run: bun install --frozen-lockfile
+
+      - name: Descargar backup de R2
+        run: |
+          aws s3 cp "s3://$R2_BUCKET/${{ inputs.backup_file }}" restore.sql \
+            --endpoint-url "$R2_ENDPOINT" || {
+              echo "❌ No se encontró ${{ inputs.backup_file }}. Backups disponibles:"
+              aws s3 ls "s3://$R2_BUCKET/" --endpoint-url "$R2_ENDPOINT"
+              exit 1
+            }
+
+      - name: Copia de seguridad del estado actual (por si acaso)
+        run: |
+          FILE="pre-restore/backup-$(date -u +%d-%m-%Y_%H%M%S).sql"
+          bun run scripts/db/dump.ts pre-restore.sql
+          aws s3 cp pre-restore.sql "s3://$R2_BUCKET/$FILE" \
+            --endpoint-url "$R2_ENDPOINT" \
+            --content-type "application/sql"
+          echo "Estado previo guardado en $FILE"
+
+      - name: Restaurar en Turso
+        run: bun run scripts/db/restore.ts restore.sql --yes
+
+      - name: Verificar resultado
+        if: success()
+        run: echo "✅ Base de datos restaurada desde ${{ inputs.backup_file }}"
+
+      - name: Notificar error
+        if: failure()
+        run: echo "❌ Error al restaurar la base de datos"

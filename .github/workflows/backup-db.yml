@@ -1,0 +1,30 @@
+name: Backup mensual de la base de datos
+
+on:
+  schedule:
+    # Día 1 de cada mes a las 03:00 UTC
+    - cron: '0 3 1 * *'
+  # Permite lanzar un backup a mano desde GitHub Actions
+  workflow_dispatch:
+
+jobs:
+  backup-db:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Llamar al endpoint de Vercel para generar el backup en R2
+        run: |
+          curl -L -X POST ${{ secrets.VERCEL_URL }}/api/cronjobs/backup-db \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -d '{}' \
+            --fail \
+            --show-error
+
+      - name: Verificar resultado
+        if: success()
+        run: echo "✅ Backup de la base de datos subido a R2"
+
+      - name: Notificar error
+        if: failure()
+        run: echo "❌ Error al generar el backup de la base de datos"
