@@ -1,5 +1,7 @@
 'use client';
 
+import Amount from '../Amount';
+
 export default function StatsCard({
   title,
   value,
@@ -9,6 +11,7 @@ export default function StatsCard({
   className = '',
   large = false,
   valueClassName = 'text-white',
+  sensitive = false,
 }) {
   const colorClasses = {
     blue: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
@@ -33,9 +36,13 @@ export default function StatsCard({
         )}
       </div>
       <div className="space-y-1 mt-4">
-        <div className={`${large ? 'text-2xl lg:text-4xl' : 'text-2xl'} font-bold ${valueClassName}`}>{value}</div>
+        <div className={`${large ? 'text-2xl lg:text-4xl' : 'text-2xl'} font-bold ${valueClassName}`}>
+          {sensitive ? <Amount>{value}</Amount> : value}
+        </div>
         {subValue && (
-          <div className={`${large ? 'text-sm lg:text-lg' : 'text-sm'} text-zinc-500`}>{subValue}</div>
+          <div className={`${large ? 'text-sm lg:text-lg' : 'text-sm'} text-zinc-500`}>
+            {sensitive ? <Amount>{subValue}</Amount> : subValue}
+          </div>
         )}
       </div>
     </div>

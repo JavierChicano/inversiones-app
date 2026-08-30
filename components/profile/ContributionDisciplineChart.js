@@ -3,17 +3,24 @@
 import { useEffect, useMemo, useRef } from 'react';
 import * as echarts from 'echarts';
 import { formatCurrency, formatMonthYear } from '@/lib/utils/formatters';
+import { usePrivacy } from '@/context/PrivacyContext';
+import Amount from '@/components/Amount';
 
 const GREEN = '#22c55e';
 const RED = '#ef4444';
 const PRIMARY = '#6366f1';
+const MASK = '•••••';
 
-function KpiTile({ label, value, hint, valueClassName = 'text-white' }) {
+function KpiTile({ label, value, hint, valueClassName = 'text-white', sensitive = false }) {
   return (
     <div className="bg-zinc-900/60 border border-zinc-800 rounded-lg p-3">
       <div className="text-xs uppercase tracking-wide text-zinc-500 mb-1">{label}</div>
-      <div className={`text-lg font-bold ${valueClassName}`}>{value}</div>
-      {hint && <div className="text-xs text-zinc-500 mt-1">{hint}</div>}
+      <div className={`text-lg font-bold ${valueClassName}`}>
+        {sensitive ? <Amount>{value}</Amount> : value}
+      </div>
+      {hint && (
+        <div className="text-xs text-zinc-500 mt-1">{sensitive ? <Amount>{hint}</Amount> : hint}</div>
+      )}
     </div>
   );
 }
@@ -37,6 +44,7 @@ function disciplineBarColor(rate) {
 export default function ContributionDisciplineChart({ data, loading, error }) {
   const chartRef = useRef(null);
   const chartInstance = useRef(null);
+  const { hidden } = usePrivacy();
 
   const months = useMemo(() => data?.months || [], [data]);
   const metrics = data?.metrics;
@@ -50,6 +58,8 @@ export default function ContributionDisciplineChart({ data, loading, error }) {
 
     const chart = chartInstance.current;
     const avgContribution = metrics?.avgMonthlyContribution || 0;
+    // En modo privacidad, los importes del canvas (eje, media, tooltip) se enmascaran
+    const money = (value) => (hidden ? MASK : formatCurrency(value));
 
     const option = {
       backgroundColor: 'transparent',
@@ -68,14 +78,14 @@ export default function ContributionDisciplineChart({ data, loading, error }) {
           if (month.operations === 0) {
             lines.push('<span style="color:#a1a1aa">Sin aportaciones</span>');
           } else {
-            lines.push(`<span style="color:${GREEN}">●</span> Aportado: ${formatCurrency(month.inflowEur)}`);
+            lines.push(`<span style="color:${GREEN}">●</span> Aportado: ${money(month.inflowEur)}`);
             if (month.outflowEur > 0) {
-              lines.push(`<span style="color:${RED}">●</span> Retirado: ${formatCurrency(month.outflowEur)}`);
+              lines.push(`<span style="color:${RED}">●</span> Retirado: ${money(month.outflowEur)}`);
             }
-            lines.push(`<span style="color:#e4e4e7">●</span> Neto: <strong>${formatCurrency(month.netEur)}</strong>`);
+            lines.push(`<span style="color:#e4e4e7">●</span> Neto: <strong>${money(month.netEur)}</strong>`);
             lines.push(`<span style="color:#a1a1aa">${month.operations} ${month.operations === 1 ? 'operación' : 'operaciones'}</span>`);
           }
-          lines.push(`<span style="color:${PRIMARY}">┄</span> Media mensual: ${formatCurrency(avgContribution)}`);
+          lines.push(`<span style="color:${PRIMARY}">┄</span> Media mensual: ${money(avgContribution)}`);
           return lines.join('<br/>');
         },
       },
@@ -101,7 +111,7 @@ export default function ContributionDisciplineChart({ data, loading, error }) {
         axisLine: { lineStyle: { color: '#3f3f46' } },
         axisLabel: {
           color: '#a1a1aa',
-          formatter: (value) => `€${value.toLocaleString('es-ES')}`,
+          formatter: (value) => (hidden ? MASK : `€${value.toLocaleString('es-ES')}`),
         },
         splitLine: { lineStyle: { color: '#27272a' } },
       },
@@ -150,7 +160,7 @@ export default function ContributionDisciplineChart({ data, loading, error }) {
               show: true,
               position: 'insideEndTop',
               color: PRIMARY,
-              formatter: () => `Media ${formatCurrency(avgContribution)}`,
+              formatter: () => (hidden ? 'Media' : `Media ${formatCurrency(avgContribution)}`),
             },
             data: [{ yAxis: avgContribution }],
           },
@@ -166,7 +176,7 @@ export default function ContributionDisciplineChart({ data, loading, error }) {
     return () => {
       window.removeEventListener('resize', handleResize);
     };
-  }, [months, metrics]);
+  }, [months, metrics, hidden]);
 
   useEffect(() => {
     return () => {
@@ -228,6 +238,7 @@ export default function ContributionDisciplineChart({ data, loading, error }) {
           label="Media mensual"
           value={formatCurrency(metrics.avgMonthlyContribution)}
           hint={`Neto: ${formatCurrency(metrics.avgMonthlyNet)} / mes`}
+          sensitive
         />
         <KpiTile
           label="Racha actual"
@@ -239,6 +250,7 @@ export default function ContributionDisciplineChart({ data, loading, error }) {
           label="Aportado neto"
           value={formatCurrency(metrics.netContributedEur)}
           hint={`${formatCurrency(metrics.totalContributedEur)} enviados · ${formatCurrency(metrics.totalWithdrawnEur)} retirados`}
+          sensitive
         />
       </div>
 
@@ -248,7 +260,12 @@ export default function ContributionDisciplineChart({ data, loading, error }) {
         {data.source === 'transactions'
           ? 'Sin cambios de divisa registrados: la aportación se aproxima con compras menos ventas convertidas al tipo de cambio actual.'
           : 'Aportación = cambios EUR → USD (dinero enviado a invertir) menos cambios USD → EUR (dinero retirado). No incluye beneficios reinvertidos.'}
-        {metrics.bestMonth && ` Mejor mes: ${formatMonthYear(metrics.bestMonth.key)} (${formatCurrency(metrics.bestMonth.inflowEur)}).`}
+        {metrics.bestMonth && (
+          <>
+            {' '}Mejor mes: {formatMonthYear(metrics.bestMonth.key)} (
+            <Amount>{formatCurrency(metrics.bestMonth.inflowEur)}</Amount>).
+          </>
+        )}
       </p>
     </div>
   );

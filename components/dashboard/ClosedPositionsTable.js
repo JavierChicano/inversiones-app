@@ -1,5 +1,7 @@
 'use client';
 
+import Amount from '../Amount';
+
 import { useState, Fragment } from 'react';
 import { formatHoldingTime } from '@/lib/utils/formatters';
 
@@ -92,23 +94,23 @@ export default function ClosedPositionsTable({ data }) {
                   {position.totalTrades}
                 </td>
                 <td className="py-4 px-4 text-right text-white">
-                  <span className="text-zinc-300">{formatCurrency(position.totalInvested)}</span>
+                  <span className="text-zinc-300"><Amount>{formatCurrency(position.totalInvested)}</Amount></span>
                 </td>
                 <td className="py-4 px-4 text-right text-white">
-                  <span className="text-zinc-300">{formatCurrency(position.totalRevenue)}</span>
+                  <span className="text-zinc-300"><Amount>{formatCurrency(position.totalRevenue)}</Amount></span>
                 </td>
                 <td className="py-4 px-4 text-right">
                   <span className={`font-semibold ${
                     position.totalGainLoss >= 0 ? 'text-green-500' : 'text-red-500'
                   }`}>
-                    {formatCurrency(position.totalGainLoss)}
+                    <Amount>{formatCurrency(position.totalGainLoss)}</Amount>
                   </span>
                 </td>
                 <td className="py-4 px-4 text-right">
                   <span className={`${
                     position.avgGainPerTrade >= 0 ? 'text-green-500' : 'text-red-500'
                   }`}>
-                    {formatCurrency(position.avgGainPerTrade)}
+                    <Amount>{formatCurrency(position.avgGainPerTrade)}</Amount>
                   </span>
                 </td>
                 <td className="py-4 px-4 text-right">
@@ -152,19 +154,19 @@ export default function ClosedPositionsTable({ data }) {
                       <td className="py-2 px-4 text-zinc-400 text-sm">{getAssetTypeLabel(position.type)}</td>
                       <td className="py-2 px-4 text-right text-white text-sm">1</td>
                       <td className="py-2 px-4 text-right text-sm">
-                        <span className="text-zinc-300">{formatCurrency(trade.invested || 0)}</span>
+                        <span className="text-zinc-300"><Amount>{formatCurrency(trade.invested || 0)}</Amount></span>
                       </td>
                       <td className="py-2 px-4 text-right text-sm">
-                        <span className="text-zinc-300">{formatCurrency(trade.revenue || 0)}</span>
+                        <span className="text-zinc-300"><Amount>{formatCurrency(trade.revenue || 0)}</Amount></span>
                       </td>
                       <td className="py-2 px-4 text-right text-sm">
                         <span className={`font-semibold ${trade.gainLoss >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                          {formatCurrency(trade.gainLoss)}
+                          <Amount>{formatCurrency(trade.gainLoss)}</Amount>
                         </span>
                       </td>
                       <td className="py-2 px-4 text-right text-sm">
                         <span className={`${trade.gainLoss >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                          {formatCurrency(trade.gainLoss)}
+                          <Amount>{formatCurrency(trade.gainLoss)}</Amount>
                         </span>
                       </td>
                       <td className="py-2 px-4 text-right text-sm">

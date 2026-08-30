@@ -6,6 +6,7 @@ import CurrencyExchangesTable from "@/components/dashboard/CurrencyExchangesTabl
 import QuickAddCurrencyExchange from "@/components/dashboard/QuickAddCurrencyExchange";
 import EditCurrencyExchangeModal from "@/components/dashboard/EditCurrencyExchangeModal";
 import StatsCard from "@/components/dashboard/StatsCard";
+import Amount from "@/components/Amount";
 import { RefreshIcon, CurrencyIcon, TrendingUpIcon, TrendingDownIcon, ChartIcon } from "@/components/icons";
 import { calculateCurrencyExchangeMetrics } from "@/lib/utils/currencyExchangeMetrics";
 
@@ -141,6 +142,7 @@ export default function DivisasPage() {
                 title="NETO"
                 value={`${exchangeMetrics.summary.totalNetEur >= 0 ? '+' : ''}${exchangeMetrics.summary.totalNetEur.toFixed(2)} €`}
                 subValue={`Abierto: ${exchangeMetrics.summary.openUnrealizedEur >= 0 ? '+' : ''}${exchangeMetrics.summary.openUnrealizedEur.toFixed(2)} € · Realizado: ${exchangeMetrics.summary.realizedNetEur >= 0 ? '+' : ''}${exchangeMetrics.summary.realizedNetEur.toFixed(2)} €`}
+                sensitive
                 icon={<CurrencyIcon className="w-5 h-5" />}
                 color={exchangeMetrics.summary.totalNetEur >= 0 ? "green" : "red"}
                 valueClassName={exchangeMetrics.summary.totalNetEur >= 0 ? "text-green-400" : "text-red-400"}
@@ -166,13 +168,13 @@ export default function DivisasPage() {
                   <div>
                     <div className="text-zinc-400 text-sm font-medium mb-2">📥 Invertido</div>
                     <div className="text-2xl lg:text-3xl font-bold text-blue-400">
-                      {exchangeMetrics.summary.investedEur.toFixed(2)} €
+                      <Amount>{exchangeMetrics.summary.investedEur.toFixed(2)} €</Amount>
                     </div>
                   </div>
                   <div>
                     <div className="text-zinc-400 text-sm font-medium mb-2">📤 Recuperado</div>
                     <div className="text-2xl lg:text-3xl font-bold text-orange-400">
-                      {exchangeMetrics.summary.recoveredEur.toFixed(2)} €
+                      <Amount>{exchangeMetrics.summary.recoveredEur.toFixed(2)} €</Amount>
                     </div>
                   </div>
                 </div>
@@ -189,8 +191,8 @@ export default function DivisasPage() {
                     />
                   </div>
                   <div className="flex items-center justify-between text-xs text-zinc-500">
-                    <span>Pendiente: {pendingEur.toFixed(2)} €</span>
-                    <span>Posición abierta: {exchangeMetrics.summary.openCostEur.toFixed(2)} €</span>
+                    <span>Pendiente: <Amount>{pendingEur.toFixed(2)} €</Amount></span>
+                    <span>Posición abierta: <Amount>{exchangeMetrics.summary.openCostEur.toFixed(2)} €</Amount></span>
                   </div>
                 </div>
               </div>
@@ -199,7 +201,7 @@ export default function DivisasPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               <StatsCard
                 title="Realizado acumulado"
-                value={`${exchangeMetrics.summary.realizedNetEur >= 0 ? '+' : ''}${exchangeMetrics.summary.realizedNetEur.toFixed(2)} €`}
+                value={<Amount>{`${exchangeMetrics.summary.realizedNetEur >= 0 ? '+' : ''}${exchangeMetrics.summary.realizedNetEur.toFixed(2)} €`}</Amount>}
                 subValue="Resultado cerrado por cierres USD→EUR"
                 icon={<TrendingUpIcon className="w-5 h-5" />}
                 color={exchangeMetrics.summary.realizedNetEur >= 0 ? "green" : "red"}
@@ -209,6 +211,7 @@ export default function DivisasPage() {
                 title="Posición abierta"
                 value={`${exchangeMetrics.summary.openCurrentValueEur.toFixed(2)} €`}
                 subValue={`Coste: ${exchangeMetrics.summary.openCostEur.toFixed(2)} €`}
+                sensitive
                 icon={<ChartIcon className="w-5 h-5" />}
                 color="blue"
               />

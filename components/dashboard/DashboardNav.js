@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useRefresh } from "@/app/dashboard/layout";
+import { usePrivacy } from "@/context/PrivacyContext";
 import {
   GridIcon,
   ClipboardListIcon,
@@ -15,6 +16,8 @@ import {
   WatchlistIcon,
   CurrencyIcon,
   CoinStackIcon,
+  EyeIcon,
+  EyeOffIcon,
 } from "../icons";
 
 const REFRESH_COOLDOWN_SECONDS = 30;
@@ -27,6 +30,7 @@ export default function DashboardNav() {
   const [cooldownUntil, setCooldownUntil] = useState(0);
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
   const { handleRefresh: invalidateCache } = useRefresh();
+  const { hidden: privacyOn, togglePrivacy } = usePrivacy();
 
   useEffect(() => {
     const syncCooldownState = () => {
@@ -171,6 +175,24 @@ export default function DashboardNav() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={togglePrivacy}
+            aria-pressed={privacyOn}
+            className={`btn-secondary rounded-lg flex items-center gap-2 ${
+              privacyOn ? "border-cyan-300/25 bg-cyan-300/15 text-cyan-100 hover:bg-cyan-300/20" : ""
+            }`}
+            title={privacyOn ? "Mostrar importes" : "Ocultar importes"}
+          >
+            {privacyOn ? (
+              <EyeOffIcon className="w-5 h-5" />
+            ) : (
+              <EyeIcon className="w-5 h-5" />
+            )}
+            <span className="hidden sm:inline">
+              {privacyOn ? "Mostrar" : "Ocultar"}
+            </span>
+          </button>
           <button
             onClick={handleRefresh}
             disabled={isRefreshDisabled}

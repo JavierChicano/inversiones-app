@@ -1,5 +1,7 @@
 'use client';
 
+import Amount from '../Amount';
+
 import { useState, useEffect, useRef } from 'react';
 import { useBackdropClose } from '@/lib/hooks/useBackdropClose';
 
@@ -136,10 +138,10 @@ export default function TransactionsTable({ data, onTransactionUpdated }) {
           <h3 className="text-white text-lg font-semibold">Historial de Transacciones</h3>
           <div className="flex gap-4 text-sm">
             <div className="text-zinc-400">
-              Total Compras: <span className="text-green-500 font-semibold">{formatCurrency(totalBuyAmount)}</span>
+              Total Compras: <Amount className="text-green-500 font-semibold">{formatCurrency(totalBuyAmount)}</Amount>
             </div>
             <div className="text-zinc-400">
-              Total Ventas: <span className="text-red-500 font-semibold">{formatCurrency(totalSellAmount)}</span>
+              Total Ventas: <Amount className="text-red-500 font-semibold">{formatCurrency(totalSellAmount)}</Amount>
             </div>
           </div>
         </div>
@@ -191,13 +193,15 @@ export default function TransactionsTable({ data, onTransactionUpdated }) {
                       </span>
                     </td>
                     <td className="py-4 px-4 text-center text-white font-semibold">
-                      {formatCurrency(totalWithFees)}
+                      <Amount>{formatCurrency(totalWithFees)}</Amount>
                     </td>
                     <td className="py-4 px-4 text-center text-zinc-300">
-                      {transaction.quantity.toLocaleString('es-ES', {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 8,
-                      })}
+                      <Amount>
+                        {transaction.quantity.toLocaleString('es-ES', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 8,
+                        })}
+                      </Amount>
                     </td>
                     <td className="py-4 px-4 text-center text-zinc-300">
                       {formatCurrency(transaction.pricePerUnit)}
@@ -208,7 +212,7 @@ export default function TransactionsTable({ data, onTransactionUpdated }) {
                     <td className={`py-4 px-4 text-center font-semibold ${
                       transaction.type === 'BUY' ? 'text-red-400' : 'text-green-400'
                     }`}>
-                      {transaction.type === 'BUY' ? '-' : '+'}{formatCurrency(totalWithFees)}
+                      <Amount>{transaction.type === 'BUY' ? '-' : '+'}{formatCurrency(totalWithFees)}</Amount>
                     </td>
                     <td className="py-4 px-4 text-center relative">
                       <div ref={openMenuId === transaction.id ? menuRef : null}>
@@ -279,7 +283,7 @@ export default function TransactionsTable({ data, onTransactionUpdated }) {
                     ? 'text-green-500'
                     : 'text-red-500'
                 }`}>
-                  {formatCurrency(totalSellAmount - totalBuyAmount)}
+                  <Amount>{formatCurrency(totalSellAmount - totalBuyAmount)}</Amount>
                 </td>
                 <td></td>
               </tr>

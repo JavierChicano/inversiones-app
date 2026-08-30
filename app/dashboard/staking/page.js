@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useCache } from '@/context/CacheContext';
 import StatsCard from '@/components/dashboard/StatsCard';
+import Amount from '@/components/Amount';
 import AddStakingPositionModal from '@/components/dashboard/AddStakingPositionModal';
 import StakingPositionsTable from '@/components/dashboard/StakingPositionsTable';
 import StakingHistoryTable from '@/components/dashboard/StakingHistoryTable';
@@ -216,6 +217,7 @@ export default function StakingHubPage() {
           title="Cripto en posesión"
           value={formatUsd(data.summary.totalCryptoUsdValue)}
           subValue={ownedByTickerLabel}
+          sensitive
           icon={<CoinStackIcon className="h-5 w-5" />}
           color="blue"
         />
@@ -223,13 +225,18 @@ export default function StakingHubPage() {
           title="Actualmente en staking"
           value={formatUsd(data.summary.totalStakedUsdValue)}
           subValue={stakedByTickerLabel}
+          sensitive
           icon={<LockIcon className="h-5 w-5" />}
           color="indigo"
         />
         <StatsCard
           title="% de cripto en staking"
           value={`${Number(data.summary.stakedPercentage || 0).toFixed(2)}%`}
-          subValue={`Proyección anual: ${formatUsd(totals.annualUsd)}`}
+          subValue={
+            <>
+              Proyección anual: <Amount>{formatUsd(totals.annualUsd)}</Amount>
+            </>
+          }
           icon={<PercentIcon className="h-5 w-5" />}
           color="green"
         />

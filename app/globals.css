@@ -109,3 +109,12 @@ body {
 button {
   cursor: pointer;
 }
+/* Modo privacidad: difumina los valores marcados con .sensitive (ver components/Amount.js) */
+.sensitive {
+  transition: filter 200ms ease;
+}
+
+html[data-privacy="on"] .sensitive {
+  filter: blur(7px);
+  user-select: none;
+}

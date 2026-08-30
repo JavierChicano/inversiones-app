@@ -1,5 +1,7 @@
 'use client';
 
+import Amount from '../Amount';
+
 import { Fragment, useState } from 'react';
 import { formatHoldingTime } from '@/lib/utils/formatters';
 
@@ -125,10 +127,12 @@ export default function PositionsTable({ data }) {
                       {formatHoldingTime(position.avgHoldingDays || 0)}
                     </td>
                     <td className="py-4 px-4 text-center text-zinc-300">
-                      {position.quantity.toLocaleString('es-ES', {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 8,
-                      })}
+                      <Amount>
+                        {position.quantity.toLocaleString('es-ES', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 8,
+                        })}
+                      </Amount>
                     </td>
                     <td className="py-4 px-4 text-center text-zinc-300">
                       {formatCurrency(position.avgBuyPrice)}
@@ -137,12 +141,12 @@ export default function PositionsTable({ data }) {
                       {formatCurrency(position.currentPrice)}
                     </td>
                     <td className="py-4 px-4 text-right text-white font-semibold">
-                      {formatCurrency(position.currentValue)}
+                      <Amount>{formatCurrency(position.currentValue)}</Amount>
                     </td>
                     <td className={`py-4 px-4 text-right font-semibold ${
                       position.gainLoss >= 0 ? 'text-green-500' : 'text-red-500'
                     }`}>
-                      {formatCurrency(position.gainLoss)}
+                      <Amount>{formatCurrency(position.gainLoss)}</Amount>
                     </td>
                     <td className="py-4 px-4 text-right">
                       <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-sm font-semibold ${
@@ -167,10 +171,12 @@ export default function PositionsTable({ data }) {
                           {formatHoldingTime(lot.holdingDays || 0)}
                         </td>
                         <td className="py-2 px-4 text-center text-zinc-300 text-sm">
-                          {lot.quantity.toLocaleString('es-ES', {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 8,
-                          })}
+                          <Amount>
+                            {lot.quantity.toLocaleString('es-ES', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 8,
+                            })}
+                          </Amount>
                         </td>
                         <td className="py-2 px-4 text-center text-zinc-300 text-sm">
                           {formatCurrency(lot.pricePerUnit)}
@@ -179,12 +185,12 @@ export default function PositionsTable({ data }) {
                           {formatCurrency(position.currentPrice)}
                         </td>
                         <td className="py-2 px-4 text-right text-white text-sm font-semibold">
-                          {formatCurrency(lot.currentValue)}
+                          <Amount>{formatCurrency(lot.currentValue)}</Amount>
                         </td>
                         <td className={`py-2 px-4 text-right text-sm font-semibold ${
                           lot.gainLoss >= 0 ? 'text-green-500' : 'text-red-500'
                         }`}>
-                          {formatCurrency(lot.gainLoss)}
+                          <Amount>{formatCurrency(lot.gainLoss)}</Amount>
                         </td>
                         <td className="py-2 px-4 text-right text-sm">
                           <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-sm font-semibold ${
@@ -206,14 +212,14 @@ export default function PositionsTable({ data }) {
               <td className="py-4 px-4 text-white font-bold">Total</td>
               <td colSpan="5"></td>
               <td className="py-4 px-4 text-right text-white font-bold">
-                {formatCurrency(sortedData.reduce((sum, p) => sum + p.currentValue, 0))}
+                <Amount>{formatCurrency(sortedData.reduce((sum, p) => sum + p.currentValue, 0))}</Amount>
               </td>
               <td className={`py-4 px-4 text-right font-bold ${
                 totalGainLoss >= 0
                   ? 'text-green-500'
                   : 'text-red-500'
               }`}>
-                {formatCurrency(totalGainLoss)}
+                <Amount>{formatCurrency(totalGainLoss)}</Amount>
               </td>
               <td className="py-4 px-4 text-right">
                 <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-sm font-semibold ${

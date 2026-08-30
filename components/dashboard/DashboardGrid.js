@@ -1,6 +1,7 @@
 "use client";
 
 import StatsCard from "./StatsCard";
+import Amount from "../Amount";
 import StockDistributionChart from "./StockDistributionChart";
 import WinRateChart from "./WinRateChart";
 import ProgressionChart from "./ProgressionChart";
@@ -49,6 +50,7 @@ export default function DashboardGrid({ data }) {
             title="Portfolio"
             value={formatCurrency(data.stats.portfolioTotal.eur)}
             subValue={formatCurrency(data.stats.portfolioTotal.usd, "USD")}
+            sensitive
             color="blue"
             icon={<CreditCardIcon className="w-6 h-6" />}
             large
@@ -59,6 +61,7 @@ export default function DashboardGrid({ data }) {
             title="Invertido"
             value={formatCurrency(data.stats.invested.eur)}
             subValue={formatCurrency(data.stats.invested.usd, "USD")}
+            sensitive
             color="blue"
             icon={<CashIcon className="w-6 h-6" />}
           />
@@ -80,7 +83,7 @@ export default function DashboardGrid({ data }) {
                 data.stats.netTotal.eur >= 0 ? "text-green-500" : "text-red-500"
               }
             >
-              {formatCurrency(data.stats.netTotal.eur)}
+              <Amount>{formatCurrency(data.stats.netTotal.eur)}</Amount>
             </span>
           }
           subValue={`Posiciones cerradas: ${data.stats.closedPositions || 0}`}
@@ -99,9 +102,12 @@ export default function DashboardGrid({ data }) {
               {formatPercent(data.stats.roi)}
             </span>
           }
-          subValue={`${
-            roiAmount >= 0 ? "Ganancia" : "Pérdida"
-          }: ${formatCurrency(Math.abs(roiAmount))}`}
+          subValue={
+            <>
+              {roiAmount >= 0 ? "Ganancia" : "Pérdida"}:{" "}
+              <Amount>{formatCurrency(Math.abs(roiAmount))}</Amount>
+            </>
+          }
           color={data.stats.roi >= 0 ? "green" : "red"}
           icon={<BarChartIcon className="w-6 h-6" />}
         />

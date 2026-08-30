@@ -2,6 +2,7 @@
 
 import { TrendingUpIcon, CashIcon, ChartIcon } from '@/components/icons';
 import { formatCurrency, formatSignedCurrency } from '@/lib/utils/formatters';
+import Amount from '@/components/Amount';
 
 const TONE = {
   green: 'bg-green-500/10 text-green-500 border-green-500/20',
@@ -17,9 +18,9 @@ function SummaryTile({ title, value, hint, icon }) {
       <div className="min-w-0">
         <div className="text-xs uppercase tracking-wide text-zinc-500">{title}</div>
         <div className={`text-lg font-bold leading-tight ${value >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-          {formatSignedCurrency(value)}
+          <Amount>{formatSignedCurrency(value)}</Amount>
         </div>
-        <div className="text-xs text-zinc-500 truncate">{hint}</div>
+        <div className="text-xs text-zinc-500 truncate"><Amount>{hint}</Amount></div>
       </div>
     </div>
   );

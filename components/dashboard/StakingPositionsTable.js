@@ -1,6 +1,7 @@
 'use client';
 
 import { Fragment, useState } from 'react';
+import Amount from '../Amount';
 
 function formatCoin(value, ticker) {
   return `${(Number(value) || 0).toFixed(4)} ${ticker}`;
@@ -112,7 +113,7 @@ export default function StakingPositionsTable({ positions = [], onUnstake }) {
                     </button>
                   </td>
                   <td className="px-4 py-4 text-right font-medium text-cyan-200 align-top">
-                    {formatCoin(position.amountStaked, position.assetTicker)}
+                    <Amount>{formatCoin(position.amountStaked, position.assetTicker)}</Amount>
                   </td>
                   <td className="px-4 py-4 text-right text-emerald-300 align-top">
                     {Number(position.manualApy || 0).toFixed(2)}%
@@ -125,43 +126,47 @@ export default function StakingPositionsTable({ positions = [], onUnstake }) {
                       <div className="flex items-center justify-end gap-2">
                         <span className="text-[11px] uppercase tracking-wide text-zinc-500">Día</span>
                         <span className="font-medium text-zinc-200">
-                          {formatCoin(position.projection?.daily?.coin, position.assetTicker)}
+                          <Amount>{formatCoin(position.projection?.daily?.coin, position.assetTicker)}</Amount>
                         </span>
                         <span className="inline-flex w-12 justify-end text-xs text-zinc-500">
-                          {formatUsd(position.projection?.daily?.usd)}
+                          <Amount>{formatUsd(position.projection?.daily?.usd)}</Amount>
                         </span>
                       </div>
                       <div className="flex items-center justify-end gap-2">
                         <span className="text-[11px] uppercase tracking-wide text-zinc-500">Mes</span>
                         <span className="font-medium text-zinc-200">
-                          {formatCoin(position.projection?.monthly?.coin, position.assetTicker)}
+                          <Amount>{formatCoin(position.projection?.monthly?.coin, position.assetTicker)}</Amount>
                         </span>
                         <span className="inline-flex w-12 justify-end text-xs text-zinc-500">
-                          {formatUsd(position.projection?.monthly?.usd)}
+                          <Amount>{formatUsd(position.projection?.monthly?.usd)}</Amount>
                         </span>
                       </div>
                       <div className="flex items-center justify-end gap-2">
                         <span className="text-[11px] uppercase tracking-wide text-zinc-500">Año</span>
                         <span className="font-medium text-zinc-200">
-                          {formatCoin(position.projection?.annual?.coin, position.assetTicker)}
+                          <Amount>{formatCoin(position.projection?.annual?.coin, position.assetTicker)}</Amount>
                         </span>
                         <span className="inline-flex w-12 justify-end text-xs text-zinc-500">
-                          {formatUsd(position.projection?.annual?.usd)}
+                          <Amount>{formatUsd(position.projection?.annual?.usd)}</Amount>
                         </span>
                       </div>
                     </div>
                   </td>
                   <td className="px-4 py-4 text-right align-top">
                     <div className="font-semibold text-emerald-300">
-                      {formatCoin(accumulatedRewardCoin, position.assetTicker)}
+                      <Amount>{formatCoin(accumulatedRewardCoin, position.assetTicker)}</Amount>
                     </div>
                     <div className="text-xs text-emerald-400/80">
-                      {formatUsd(accumulatedRewardUsd)}
+                      <Amount>{formatUsd(accumulatedRewardUsd)}</Amount>
                     </div>
                     <div className="mt-1 text-[11px] text-zinc-500">
-                      {pendingRewardCoin > 0
-                        ? `${formatCoin(pendingRewardCoin, position.assetTicker)} pendientes de cobro al cerrar`
-                        : `${earningDays} días generando (3 de lock)`}
+                      {pendingRewardCoin > 0 ? (
+                        <>
+                          <Amount>{formatCoin(pendingRewardCoin, position.assetTicker)}</Amount> pendientes de cobro al cerrar
+                        </>
+                      ) : (
+                        `${earningDays} días generando (3 de lock)`
+                      )}
                     </div>
                   </td>
                   <td className="px-4 py-4 text-right align-top">

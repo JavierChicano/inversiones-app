@@ -2,10 +2,15 @@
 
 import { useEffect, useRef } from 'react';
 import * as echarts from 'echarts';
+import { usePrivacy } from '@/context/PrivacyContext';
+import Amount from '../Amount';
+
+const MASK = '•••••';
 
 export default function StockDistributionChart({ data, exchangeRate = 1.1 }) {
   const chartRef = useRef(null);
   const chartInstance = useRef(null);
+  const { hidden } = usePrivacy();
 
   const totalValueUSD = data
     ? data.reduce((sum, item) => sum + item.currentValue, 0)
@@ -62,7 +67,7 @@ export default function StockDistributionChart({ data, exchangeRate = 1.1 }) {
         formatter: (params) => {
           return `
             <strong>${params.name}</strong><br/>
-            Valor: $${params.value.toLocaleString('en-US', { minimumFractionDigits: 2 })}<br/>
+            Valor: ${hidden ? MASK : `$${params.value.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}<br/>
             Porcentaje: ${params.percent.toFixed(2)}%
           `;
         },
@@ -81,7 +86,9 @@ export default function StockDistributionChart({ data, exchangeRate = 1.1 }) {
           left: isMobile ? 'center' : '29%',
           top: isMobile ? '55%' : 'center',
           style: {
-            text: `$${totalValueUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            text: hidden
+              ? ''
+              : `$${totalValueUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
             fontSize: isMobile ? 18 : 22,
             fontWeight: 'bold',
             fill: '#ffffff',
@@ -178,7 +185,7 @@ export default function StockDistributionChart({ data, exchangeRate = 1.1 }) {
         chartInstance.current = null;
       }
     };
-  }, [data]);
+  }, [data, hidden]);
 
   return (
     <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 h-full flex flex-col relative overflow-hidden">
@@ -209,7 +216,7 @@ export default function StockDistributionChart({ data, exchangeRate = 1.1 }) {
                   </div>
                   <span className="text-sm text-white font-semibold tabular-nums text-right whitespace-nowrap">
                     <span className="hidden xl:inline">
-                      {formatCurrencyUSD(item.value)} ·{' '}
+                      <Amount>{formatCurrencyUSD(item.value)}</Amount> ·{' '}
                     </span>
                     {percentage.toFixed(1)}%
                   </span>

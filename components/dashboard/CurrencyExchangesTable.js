@@ -1,4 +1,6 @@
 "use client";
+
+import Amount from "../Amount";
 import { useState, useEffect, useRef } from "react";
 import { calculateCurrencyExchangeMetrics } from "@/lib/utils/currencyExchangeMetrics";
 
@@ -95,7 +97,7 @@ export default function CurrencyExchangesTable({ exchanges, exchangeMetrics, onD
                 <td className="py-4 px-4 text-white text-sm">TOTAL ABIERTAS</td>
                 <td className="py-4 px-4 text-left text-zinc-400 text-sm">-</td>
                 <td className="py-4 px-4 text-center text-white font-bold text-sm">
-                  {formatCurrency(computedMetrics.summary.openCostEur || totalAmount, "EUR")}
+                  <Amount>{formatCurrency(computedMetrics.summary.openCostEur || totalAmount, "EUR")}</Amount>
                 </td>
                 <td className="py-4 px-4 text-center text-yellow-500 font-bold text-sm">
                   {avgRate > 0 ? avgRate.toFixed(4) : "-"}
@@ -104,7 +106,7 @@ export default function CurrencyExchangesTable({ exchanges, exchangeMetrics, onD
                   {currentRate > 0 ? currentRate.toFixed(4) : "-"}
                 </td>
                 <td className="py-4 px-4 text-right font-bold text-white text-sm">
-                  {formatCurrency(openRowValue || totalCurrentValue, "EUR")}
+                  <Amount>{formatCurrency(openRowValue || totalCurrentValue, "EUR")}</Amount>
                 </td>
                 <td className="py-4 px-4 text-right text-sm">
                   <div className="flex flex-col items-end gap-1">
@@ -116,7 +118,7 @@ export default function CurrencyExchangesTable({ exchanges, exchangeMetrics, onD
                           : "-"}
                     </span>
                     <span className={`text-xs ${(openRowDifference || totalDifference) >= 0 ? "text-green-300" : "text-red-300"}`}>
-                      {formatCurrency(Math.abs(openRowDifference || totalDifference), "EUR")}
+                      <Amount>{formatCurrency(Math.abs(openRowDifference || totalDifference), "EUR")}</Amount>
                     </span>
                   </div>
                 </td>
@@ -161,7 +163,7 @@ export default function CurrencyExchangesTable({ exchanges, exchangeMetrics, onD
                     </div>
                   </td>
                   <td className="py-4 px-4 text-center text-white font-medium text-sm">
-                    {formatCurrency(exchange.amount, exchange.fromCurrency)}
+                    <Amount>{formatCurrency(exchange.amount, exchange.fromCurrency)}</Amount>
                   </td>
                   <td className="py-4 px-4 text-center text-yellow-500 font-semibold text-sm">
                     {exchange.exchangeRate.toFixed(4)}
@@ -170,7 +172,7 @@ export default function CurrencyExchangesTable({ exchanges, exchangeMetrics, onD
                     {isRealized ? "-" : exchange.currentRate.toFixed(4)}
                   </td>
                   <td className="py-4 px-4 text-right font-semibold text-white text-sm">
-                    {formatCurrency(currentValueDisplay, "EUR")}
+                    <Amount>{formatCurrency(currentValueDisplay, "EUR")}</Amount>
                   </td>
                   <td className="py-4 px-4 text-right text-sm">
                     <div className="flex flex-col items-end gap-1">
@@ -178,7 +180,7 @@ export default function CurrencyExchangesTable({ exchanges, exchangeMetrics, onD
                         {formatPercentage(percentageDisplay)}
                       </span>
                       <span className={`text-xs ${isProfit ? "text-green-300" : "text-red-300"}`}>
-                        {formatCurrency(Math.abs(differenceDisplay), "EUR")}
+                        <Amount>{formatCurrency(Math.abs(differenceDisplay), "EUR")}</Amount>
                       </span>
                     </div>
                   </td>

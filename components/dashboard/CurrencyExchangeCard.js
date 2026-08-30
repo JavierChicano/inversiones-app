@@ -1,5 +1,7 @@
 'use client';
 
+import Amount from '../Amount';
+
 export default function CurrencyExchangeCard({ rate, portfolioUSD, portfolioEUR }) {
   const formatCurrency = (value, currency = 'EUR') => {
     return new Intl.NumberFormat('es-ES', {
@@ -34,11 +36,11 @@ export default function CurrencyExchangeCard({ rate, portfolioUSD, portfolioEUR 
         <div className="grid grid-cols-2 gap-4">
           <div className="p-4 bg-zinc-800/30 rounded-lg border border-zinc-700/50">
             <p className="text-zinc-400 text-xs mb-1">Portfolio EUR</p>
-            <p className="text-white text-lg font-bold">{formatCurrency(portfolioEUR)}</p>
+            <p className="text-white text-lg font-bold"><Amount>{formatCurrency(portfolioEUR)}</Amount></p>
           </div>
           <div className="p-4 bg-zinc-800/30 rounded-lg border border-zinc-700/50">
             <p className="text-zinc-400 text-xs mb-1">Portfolio USD</p>
-            <p className="text-white text-lg font-bold">{formatCurrency(portfolioUSD, 'USD')}</p>
+            <p className="text-white text-lg font-bold"><Amount>{formatCurrency(portfolioUSD, 'USD')}</Amount></p>
           </div>
         </div>
 

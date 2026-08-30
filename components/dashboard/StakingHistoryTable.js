@@ -1,5 +1,7 @@
 'use client';
 
+import Amount from '../Amount';
+
 function formatUsd(value) {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -84,25 +86,27 @@ export default function StakingHistoryTable({ history = [] }) {
               </td>
               <td className="px-4 py-4 font-semibold text-white">{event.assetTicker}</td>
               <td className="px-4 py-4 text-right text-zinc-300">
-                {formatCoin(event.principalBefore, event.assetTicker)}
+                <Amount>{formatCoin(event.principalBefore, event.assetTicker)}</Amount>
               </td>
               <td className="px-4 py-4 text-right font-semibold text-zinc-100">
-                {Number(event.principalDelta || event.principalAmount || 0) >= 0 ? '+' : ''}
-                {formatCoin(event.principalDelta || event.principalAmount || 0, event.assetTicker)}
+                <Amount>
+                  {Number(event.principalDelta || event.principalAmount || 0) >= 0 ? '+' : ''}
+                  {formatCoin(event.principalDelta || event.principalAmount || 0, event.assetTicker)}
+                </Amount>
               </td>
               <td className="px-4 py-4 text-right text-zinc-300">
-                {formatCoin(event.principalAfter, event.assetTicker)}
+                <Amount>{formatCoin(event.principalAfter, event.assetTicker)}</Amount>
               </td>
               <td className="px-4 py-4 text-right text-emerald-300">
-                {formatCoin(event.rewardAccrued || event.rewardAmount, event.assetTicker)}
+                <Amount>{formatCoin(event.rewardAccrued || event.rewardAmount, event.assetTicker)}</Amount>
                 <div className="text-xs text-zinc-500">
-                  {formatUsd((event.rewardAccrued || event.rewardAmount || 0) * (event.currentPrice || 0))}
+                  <Amount>{formatUsd((event.rewardAccrued || event.rewardAmount || 0) * (event.currentPrice || 0))}</Amount>
                 </div>
               </td>
               <td className="px-4 py-4 text-right text-cyan-300">
-                {formatCoin(event.rewardClaimed || 0, event.assetTicker)}
+                <Amount>{formatCoin(event.rewardClaimed || 0, event.assetTicker)}</Amount>
                 <div className="text-xs text-zinc-500">
-                  {formatUsd((event.rewardClaimed || 0) * (event.currentPrice || 0))}
+                  <Amount>{formatUsd((event.rewardClaimed || 0) * (event.currentPrice || 0))}</Amount>
                 </div>
               </td>
               <td className="px-4 py-4 text-right text-zinc-300">

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { formatHoldingTimeLong } from '@/lib/utils/formatters';
 import StatsCard from '@/components/dashboard/StatsCard';
+import Amount from '@/components/Amount';
 import RealizedGainsChart from '@/components/dashboard/RealizedGainsChart';
 import ClosedPositionsTable from '@/components/dashboard/ClosedPositionsTable';
 import { TrendingUpIcon, PercentIcon, BarChartIcon, CashIcon, ClockIcon } from '@/components/icons';
@@ -109,7 +110,7 @@ export default function AnalyticsPage() {
           title="Ganancia Total Realizada"
           value={
             <span className={metrics.totalGainLoss >= 0 ? 'text-green-500' : 'text-red-500'}>
-              {formatCurrency(metrics.totalGainLossEur)}
+              <Amount>{formatCurrency(metrics.totalGainLossEur)}</Amount>
             </span>
           }
           subValue={`${metrics.totalTrades} operaciones en ${metrics.totalTickers} tickers`}
@@ -124,7 +125,11 @@ export default function AnalyticsPage() {
               {formatPercent(metrics.globalROI)}
             </span>
           }
-          subValue={`Invertido: ${formatCurrency(metrics.totalInvested * (1 / data.exchangeRate.eurUsd))}`}
+          subValue={
+            <>
+              Invertido: <Amount>{formatCurrency(metrics.totalInvested * (1 / data.exchangeRate.eurUsd))}</Amount>
+            </>
+          }
           color={metrics.globalROI >= 0 ? 'blue' : 'orange'}
           icon={<BarChartIcon className="w-6 h-6" />}
         />
@@ -133,7 +138,7 @@ export default function AnalyticsPage() {
           title="Ganancia Media por Trade"
           value={
             <span className={metrics.avgGainPerTrade >= 0 ? 'text-purple-500' : 'text-red-500'}>
-              {formatCurrency(metrics.avgGainPerTradeEur)}
+              <Amount>{formatCurrency(metrics.avgGainPerTradeEur)}</Amount>
             </span>
           }
           subValue="Por operación cerrada"
