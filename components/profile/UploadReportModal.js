@@ -5,8 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useBackdropClose } from '@/lib/hooks/useBackdropClose';
 import { CloseIcon } from '@/components/icons';
 import { formatReportPeriod } from '@/lib/utils/formatters';
-
-const MAX_REPORT_BYTES = 4 * 1024 * 1024;
+import { MAX_REPORT_BYTES, MAX_REPORT_TITLE_LENGTH, MAX_REPORT_NOTES_LENGTH } from '@/lib/utils/reports';
 
 function toMonthKey(date) {
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -39,12 +38,14 @@ export default function UploadReportModal({ isOpen, onClose, onUploaded }) {
   const [title, setTitle] = useState('Radiografía de cartera');
   const [period, setPeriod] = useState(defaultPeriod);
   const [file, setFile] = useState(null);
+  const [notes, setNotes] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState('');
 
   const handleClose = () => {
     if (isUploading) return;
     setFile(null);
+    setNotes('');
     setError('');
     if (fileInputRef.current) fileInputRef.current.value = '';
     onClose();
@@ -98,6 +99,7 @@ export default function UploadReportModal({ isOpen, onClose, onUploaded }) {
           periodStart: period.periodStart,
           periodEnd: period.periodEnd,
           html,
+          notes: notes.trim(),
         }),
       });
 
@@ -109,6 +111,7 @@ export default function UploadReportModal({ isOpen, onClose, onUploaded }) {
 
       onUploaded?.(data.report);
       setFile(null);
+      setNotes('');
       if (fileInputRef.current) fileInputRef.current.value = '';
       onClose();
     } catch (err) {
@@ -151,7 +154,7 @@ export default function UploadReportModal({ isOpen, onClose, onUploaded }) {
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              maxLength={120}
+              maxLength={MAX_REPORT_TITLE_LENGTH}
               className={INPUT_CLASS}
               required
             />
@@ -191,6 +194,20 @@ export default function UploadReportModal({ isOpen, onClose, onUploaded }) {
                 setFile(e.target.files?.[0] || null);
               }}
               className="w-full text-sm text-zinc-300 file:mr-3 file:rounded-lg file:border file:border-zinc-700 file:bg-zinc-800 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-zinc-200 file:cursor-pointer hover:file:bg-zinc-700"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-zinc-400 mb-2">
+              Notas y apuntes <span className="text-zinc-500 font-normal">(opcional)</span>
+            </label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              maxLength={MAX_REPORT_NOTES_LENGTH}
+              rows={3}
+              placeholder="Conclusiones, decisiones tomadas, cosas a vigilar..."
+              className={`${INPUT_CLASS} resize-y text-sm`}
             />
           </div>
 

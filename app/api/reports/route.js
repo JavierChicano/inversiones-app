@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth/jwt';
 import { findReportsByUser, createReport } from '@/lib/repository/report.repository';
+import { MAX_REPORT_BYTES, MAX_REPORT_TITLE_LENGTH, MAX_REPORT_NOTES_LENGTH } from '@/lib/utils/reports';
 
-const MAX_REPORT_BYTES = 4 * 1024 * 1024; // 4 MB (límite de body en Vercel: 4,5 MB)
 const MONTH_KEY_REGEX = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 function getUserIdFromRequest(request) {
@@ -36,7 +36,7 @@ export async function GET(request) {
 /**
  * POST /api/reports
  * Subir un nuevo informe HTML
- * Body: { title, periodStart: 'YYYY-MM', periodEnd: 'YYYY-MM', html }
+ * Body: { title, periodStart: 'YYYY-MM', periodEnd: 'YYYY-MM', html, notes? }
  */
 export async function POST(request) {
   try {
@@ -50,13 +50,24 @@ export async function POST(request) {
     const periodStart = String(body.periodStart || '').trim();
     const periodEnd = String(body.periodEnd || '').trim();
     const html = typeof body.html === 'string' ? body.html : '';
+    const notes = typeof body.notes === 'string' ? body.notes.trim() : '';
 
     if (!title) {
       return NextResponse.json({ error: 'El título es obligatorio' }, { status: 400 });
     }
 
-    if (title.length > 120) {
-      return NextResponse.json({ error: 'El título no puede superar 120 caracteres' }, { status: 400 });
+    if (title.length > MAX_REPORT_TITLE_LENGTH) {
+      return NextResponse.json(
+        { error: `El título no puede superar ${MAX_REPORT_TITLE_LENGTH} caracteres` },
+        { status: 400 }
+      );
+    }
+
+    if (notes.length > MAX_REPORT_NOTES_LENGTH) {
+      return NextResponse.json(
+        { error: `Las notas no pueden superar ${MAX_REPORT_NOTES_LENGTH} caracteres` },
+        { status: 400 }
+      );
     }
 
     if (!MONTH_KEY_REGEX.test(periodStart) || !MONTH_KEY_REGEX.test(periodEnd)) {
@@ -90,6 +101,7 @@ export async function POST(request) {
       periodEnd,
       html,
       sizeBytes,
+      notes: notes || null,
     });
 
     return NextResponse.json({ report }, { status: 201 });
