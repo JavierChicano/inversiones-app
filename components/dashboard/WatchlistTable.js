@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { TargetIcon } from '@/components/icons';
+import { formatUsd as formatCurrency } from '@/lib/utils/formatters';
 
 export default function WatchlistTable({ watchlist, onDelete, onEdit }) {
   const [editingId, setEditingId] = useState(null);
@@ -47,15 +48,6 @@ export default function WatchlistTable({ watchlist, onDelete, onEdit }) {
     setEditingId(null);
     setEditData({ targetPrice: '', notes: '' });
     setOpenMenuId(null);
-  };
-
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value);
   };
 
   const formatPercentage = (value) => {

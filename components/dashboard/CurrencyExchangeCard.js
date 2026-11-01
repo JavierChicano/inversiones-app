@@ -1,16 +1,9 @@
 'use client';
 
 import Amount from '../Amount';
+import { formatCurrency } from '@/lib/utils/formatters';
 
 export default function CurrencyExchangeCard({ rate, portfolioUSD, portfolioEUR }) {
-  const formatCurrency = (value, currency = 'EUR') => {
-    return new Intl.NumberFormat('es-ES', {
-      style: 'currency',
-      currency: currency,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value);
-  };
 
   return (
     <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">

@@ -29,7 +29,7 @@ const privacyInitScript = `try{if(localStorage.getItem('${PRIVACY_STORAGE_KEY}')
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="es" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: privacyInitScript }} />
       </head>

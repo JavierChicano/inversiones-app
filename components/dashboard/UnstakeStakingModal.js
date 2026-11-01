@@ -2,13 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { CloseIcon } from '@/components/icons';
+import { formatCoin as formatCoinShared } from '@/lib/utils/formatters';
 
-function formatCoin(value) {
-  return new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 6,
-  }).format(Number(value) || 0);
-}
+const formatCoin = (value) => formatCoinShared(value, { maximumFractionDigits: 6 });
 
 function formatPercentage(value) {
   return `${(Number(value) || 0).toFixed(2)}%`;

@@ -92,14 +92,8 @@ export default function DashboardNav() {
       });
 
       if (response.ok) {
-        const result = await response.json();
-        console.log("Assets actualizados:", result);
-
-        // Invalidar caché del dashboard
+        // Vacía la caché y avisa a la página activa para que recargue sus datos
         invalidateCache();
-
-        // Recargar la página completamente para forzar nueva consulta
-        window.location.reload();
       } else {
         console.error("Error al actualizar assets");
       }

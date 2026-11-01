@@ -1,42 +1,27 @@
 import { NextResponse } from 'next/server';
+import { verifyToken } from '@/lib/auth/jwt';
+import { AUTH_COOKIE_NAME, clearAuthCookie } from '@/lib/auth/cookies';
 
-export async function proxy(request) {
-  const token = request.cookies.get('auth_token')?.value;
+/**
+ * Protege /dashboard/*: exige una cookie de sesión con un JWT válido.
+ * La verificación se hace en proceso (firma + expiración), sin llamadas HTTP ni a la base de datos;
+ * la existencia del usuario la comprueba el cliente con /api/auth/verify.
+ */
+export function proxy(request) {
+  const token = request.cookies.get(AUTH_COOKIE_NAME)?.value;
+  const home = new URL('/', request.url);
 
   if (!token) {
-    return NextResponse.redirect(new URL('/', request.url));
+    return NextResponse.redirect(home);
   }
 
-  try {
-    const verifyUrl = new URL('/api/auth/verify', request.url);
-    const verifyResponse = await fetch(verifyUrl, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      cache: 'no-store',
-    });
-
-    if (!verifyResponse.ok) {
-      const response = NextResponse.redirect(new URL('/', request.url));
-      response.cookies.set('auth_token', '', {
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
-        path: '/',
-        maxAge: 0,
-      });
-      return response;
-    }
-
-    return NextResponse.next();
-  } catch (error) {
-    console.error('Error validando token en proxy:', error);
-    return NextResponse.redirect(new URL('/', request.url));
+  if (!verifyToken(token)) {
+    return clearAuthCookie(NextResponse.redirect(home));
   }
+
+  return NextResponse.next();
 }
 
-// Configurar qué rutas debe proteger el middleware
 export const config = {
   matcher: ['/dashboard/:path*'],
 };

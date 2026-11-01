@@ -1,32 +1,32 @@
 import { NextResponse } from 'next/server';
+import { getUserIdFromRequest, isCronRequest } from '@/lib/auth/request';
 import { refreshAssetsForUsers } from '@/lib/services/assetRefresh.service';
+import { jsonError } from '@/lib/api/http';
 
-export async function POST(req) {
+// Las llamadas a proveedores externos pueden tardar; margen por encima de los 10s por defecto
+export const maxDuration = 60;
+
+/**
+ * POST /api/cronjobs/refresh-assets
+ *  - Con `Authorization: Bearer <CRON_SECRET>`: refresca los activos de todos los usuarios (modo cron).
+ *  - Con un JWT de usuario: refresca solo los activos de ese usuario.
+ */
+export async function POST(request) {
   try {
-    const body = await req.json();
-    const { userId } = body;
-
-    // Si viene el header Authorization con el CRON_SECRET, es una llamada del cron job de GitHub Actions
-    const authHeader = req.headers.get('authorization');
-    const isCronJob = authHeader === `Bearer ${process.env.CRON_SECRET}`;
-
-    // Si no es cron job, se requiere userId
-    if (!isCronJob && !userId) {
-      return NextResponse.json({ error: 'User ID requerido' }, { status: 400 });
+    if (isCronRequest(request)) {
+      const result = await refreshAssetsForUsers({ userIds: [], isCronJob: true });
+      return NextResponse.json(result);
     }
 
-    const result = await refreshAssetsForUsers({
-      userIds: isCronJob ? [] : [userId],
-      isCronJob,
-    });
+    const userId = getUserIdFromRequest(request);
+    if (!userId) {
+      return jsonError('No autorizado', 401);
+    }
 
+    const result = await refreshAssetsForUsers({ userIds: [userId], isCronJob: false });
     return NextResponse.json(result);
-
   } catch (error) {
-    console.error("Error en refresh-assets:", error);
-    return NextResponse.json(
-        { error: 'Error actualizando cartera', details: error.message }, 
-        { status: 500 }
-    );
+    console.error('Error en refresh-assets:', error);
+    return NextResponse.json({ error: 'Error actualizando cartera', details: error.message }, { status: 500 });
   }
 }

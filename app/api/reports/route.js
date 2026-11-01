@@ -1,112 +1,46 @@
 import { NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth/jwt';
+import { requireUser } from '@/lib/auth/request';
 import { findReportsByUser, createReport } from '@/lib/repository/report.repository';
-import { MAX_REPORT_BYTES, MAX_REPORT_TITLE_LENGTH, MAX_REPORT_NOTES_LENGTH } from '@/lib/utils/reports';
-
-const MONTH_KEY_REGEX = /^\d{4}-(0[1-9]|1[0-2])$/;
-
-function getUserIdFromRequest(request) {
-  const token = request.headers.get('authorization')?.replace('Bearer ', '');
-  if (!token) return null;
-
-  const decoded = verifyToken(token);
-  return decoded?.userId || null;
-}
+import { jsonError, readJsonBody, validationError } from '@/lib/api/http';
+import { validateNewReport } from '@/lib/validation/reports';
 
 /**
- * GET /api/reports
- * Listar los informes (radiografías de cartera) del usuario, sin el HTML
+ * GET /api/reports — listar los informes (radiografías de cartera) del usuario, sin el HTML
  */
 export async function GET(request) {
   try {
-    const userId = getUserIdFromRequest(request);
-    if (!userId) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-    }
+    const auth = requireUser(request);
+    if (auth.error) return auth.error;
 
-    const reports = await findReportsByUser(userId);
+    const reports = await findReportsByUser(auth.userId);
 
     return NextResponse.json({ reports });
   } catch (error) {
     console.error('Error en GET /api/reports:', error);
-    return NextResponse.json({ error: 'Error al obtener informes' }, { status: 500 });
+    return jsonError('Error al obtener informes', 500);
   }
 }
 
 /**
- * POST /api/reports
- * Subir un nuevo informe HTML
+ * POST /api/reports — subir un informe HTML
  * Body: { title, periodStart: 'YYYY-MM', periodEnd: 'YYYY-MM', html, notes? }
  */
 export async function POST(request) {
   try {
-    const userId = getUserIdFromRequest(request);
-    if (!userId) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-    }
+    const auth = requireUser(request);
+    if (auth.error) return auth.error;
 
-    const body = await request.json();
-    const title = String(body.title || '').trim();
-    const periodStart = String(body.periodStart || '').trim();
-    const periodEnd = String(body.periodEnd || '').trim();
-    const html = typeof body.html === 'string' ? body.html : '';
-    const notes = typeof body.notes === 'string' ? body.notes.trim() : '';
+    const body = await readJsonBody(request);
+    if (!body) return jsonError('Cuerpo de la petición inválido', 400);
 
-    if (!title) {
-      return NextResponse.json({ error: 'El título es obligatorio' }, { status: 400 });
-    }
+    const validation = validateNewReport(body);
+    if (!validation.ok) return validationError(validation);
 
-    if (title.length > MAX_REPORT_TITLE_LENGTH) {
-      return NextResponse.json(
-        { error: `El título no puede superar ${MAX_REPORT_TITLE_LENGTH} caracteres` },
-        { status: 400 }
-      );
-    }
-
-    if (notes.length > MAX_REPORT_NOTES_LENGTH) {
-      return NextResponse.json(
-        { error: `Las notas no pueden superar ${MAX_REPORT_NOTES_LENGTH} caracteres` },
-        { status: 400 }
-      );
-    }
-
-    if (!MONTH_KEY_REGEX.test(periodStart) || !MONTH_KEY_REGEX.test(periodEnd)) {
-      return NextResponse.json({ error: 'El periodo debe indicarse en formato YYYY-MM' }, { status: 400 });
-    }
-
-    if (periodStart > periodEnd) {
-      return NextResponse.json({ error: 'El mes inicial no puede ser posterior al mes final' }, { status: 400 });
-    }
-
-    if (!html.trim()) {
-      return NextResponse.json({ error: 'El archivo HTML está vacío' }, { status: 400 });
-    }
-
-    if (!/<(!doctype\s+html|html|body|head)[\s>]/i.test(html)) {
-      return NextResponse.json({ error: 'El archivo no parece un documento HTML válido' }, { status: 400 });
-    }
-
-    const sizeBytes = Buffer.byteLength(html, 'utf8');
-    if (sizeBytes > MAX_REPORT_BYTES) {
-      return NextResponse.json(
-        { error: `El informe supera el tamaño máximo permitido (${MAX_REPORT_BYTES / (1024 * 1024)} MB)` },
-        { status: 413 }
-      );
-    }
-
-    const report = await createReport({
-      userId,
-      title,
-      periodStart,
-      periodEnd,
-      html,
-      sizeBytes,
-      notes: notes || null,
-    });
+    const report = await createReport({ userId: auth.userId, ...validation.data });
 
     return NextResponse.json({ report }, { status: 201 });
   } catch (error) {
     console.error('Error en POST /api/reports:', error);
-    return NextResponse.json({ error: 'Error al guardar el informe' }, { status: 500 });
+    return jsonError('Error al guardar el informe', 500);
   }
 }

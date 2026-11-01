@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef } from 'react';
-import * as echarts from 'echarts';
+import * as echarts from '@/lib/charts/echarts';
 import { formatCurrency, formatMonthYear } from '@/lib/utils/formatters';
 import { usePrivacy } from '@/context/PrivacyContext';
 import Amount from '@/components/Amount';

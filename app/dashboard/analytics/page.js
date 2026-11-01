@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { formatHoldingTimeLong } from '@/lib/utils/formatters';
+import { useRefresh } from '@/app/dashboard/layout';
+import { formatCurrency, formatHoldingTimeLong, formatSignedPercent as formatPercent } from '@/lib/utils/formatters';
 import StatsCard from '@/components/dashboard/StatsCard';
 import Amount from '@/components/Amount';
 import RealizedGainsChart from '@/components/dashboard/RealizedGainsChart';
@@ -11,6 +12,7 @@ import { TrendingUpIcon, PercentIcon, BarChartIcon, CashIcon, ClockIcon } from '
 
 export default function AnalyticsPage() {
   const { token } = useAuth();
+  const { refreshVersion } = useRefresh();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -42,20 +44,7 @@ export default function AnalyticsPage() {
     };
 
     fetchAnalytics();
-  }, [token]);
-
-  const formatCurrency = (value, currency = 'EUR') => {
-    return new Intl.NumberFormat('es-ES', {
-      style: 'currency',
-      currency: currency,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value);
-  };
-
-  const formatPercent = (value) => {
-    return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
-  };
+  }, [token, refreshVersion]);
 
   if (loading) {
     return (

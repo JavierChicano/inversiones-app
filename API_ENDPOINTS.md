@@ -1,83 +1,79 @@
-# API Endpoints - Estado Actual
+# API Endpoints
 
-## ✅ Endpoints Activos (9)
+Todas las rutas (salvo auth y cron) exigen `Authorization: Bearer <JWT>`. Un token ausente o inválido devuelve `401`. Las entradas se validan en `lib/validation/*` y los errores de validación devuelven `400` con `{ error }`.
 
-### Autenticación (3)
-- `POST /api/auth/login` - Login de usuario
-  - **Usado en**: AuthModal.js
-- `POST /api/auth/register` - Registro de usuario
-  - **Usado en**: AuthModal.js
-- `GET /api/auth/verify` - Verificar token JWT
-  - **Usado en**: AuthContext.js (verificación automática)
+## Autenticación
 
-### Dashboard (1)
-- `GET /api/dashboard/stats` - Obtener estadísticas completas del dashboard
-  - **Usado en**: app/dashboard/page.js
-  - **Retorna**: stats, stockDistribution, progression, exchangeRate
+| Método | Ruta | Descripción |
+| --- | --- | --- |
+| `POST` | `/api/auth/register` | Registro. Body `{ email, password, name? }`. Devuelve token y fija la cookie `auth_token`. `409` si el email existe. |
+| `POST` | `/api/auth/login` | Login. Body `{ email, password }`. Migra hashes antiguos a scrypt de forma transparente. |
+| `POST` | `/api/auth/logout` | Borra la cookie de sesión. |
+| `GET` / `POST` | `/api/auth/verify` | Verifica el token (cabecera o body `{ token }`) y devuelve el usuario. |
+| `POST` | `/api/auth/change-password` | Body `{ currentPassword, newPassword, confirmPassword }`. |
 
-### Transacciones (3)
-- `GET /api/transactions` - Listar transacciones del usuario
-  - **Usado en**: TransactionsTable.js, transactions/page.js
-- `POST /api/transactions` - Crear nueva transacción
-  - **Usado en**: QuickAddTransaction.js
-- `GET /api/transactions/[id]` - Obtener transacción específica
-  - **Usado en**: TransactionsTable.js (editar)
-- `PUT /api/transactions/[id]` - Actualizar transacción
-  - **Usado en**: TransactionsTable.js (editar)
-- `DELETE /api/transactions/[id]` - Eliminar transacción
-  - **Usado en**: TransactionsTable.js (borrar)
+## Dashboard y análisis
 
-### Assets (2)
-- `GET /api/assets/[ticker]` - Obtener precio actual de un asset
-  - **Usado en**: TransactionsTable.js (SellModal - obtener precio actual)
-- `POST /api/assets/refresh-user` - Actualizar precios de assets del usuario
-  - **Usado en**: DashboardNav.js (botón Actualizar)
-- `POST /api/assets/refresh-all` - Actualizar todos los assets + guardar snapshots
-  - **Usado en**: GitHub Actions (cron cada 20 min)
+| Método | Ruta | Descripción |
+| --- | --- | --- |
+| `GET` | `/api/dashboard/stats` | Estadísticas, distribución por activo (con lotes abiertos), progresión de snapshots y transacciones del rango. Query: `startDate`, `endDate`, `sampleEvery`, `maxSnapshots`, `onlyProgression=1`. |
+| `GET` | `/api/analytics/closed-positions` | Análisis de ventas por ticker (EUR), progresión de ganancias y métricas globales. |
+| `GET` | `/api/profile/contributions` | Disciplina de aportación mensual (desde cambios de divisa; si no hay, desde transacciones). |
 
-## 📁 Estructura Final
+## Transacciones
 
-```
-app/api/
-├── auth/
-│   ├── login/route.js
-│   ├── register/route.js
-│   └── verify/route.js
-├── dashboard/
-│   └── stats/route.js
-├── transactions/
-│   ├── route.js
-│   └── [id]/route.js
-└── assets/
-    ├── [ticker]/route.js
-    ├── refresh-user/route.js
-    └── refresh-all/route.js
-```
+| Método | Ruta | Descripción |
+| --- | --- | --- |
+| `GET` | `/api/transactions` | Todas las transacciones del usuario (más recientes primero). Query opcional: `ticker`, `type`, `startDate`, `endDate`, `limit`, `offset`. Sin `limit` devuelve todas. Incluye `total`. |
+| `POST` | `/api/transactions` | Body `{ ticker, type: BUY\|SELL, assetType?: STOCK\|CRYPTO, quantity, pricePerUnit, fees?, date }`. Crea el asset si no existe. |
+| `GET` / `PUT` / `DELETE` | `/api/transactions/[id]` | Solo sobre transacciones propias (`404` en caso contrario). `PUT` acepta cualquier subconjunto de `type, quantity, pricePerUnit, fees, date`. |
 
-## 🔄 Flujo de Datos
+## Assets
 
-1. **Usuario se autentica** → `/api/auth/login` o `/api/auth/register`
-2. **Se verifica automáticamente** → `/api/auth/verify`
-3. **Carga dashboard** → `/api/dashboard/stats` (incluye todo: stats, positions, progression, etc.)
-4. **Crea transacción** → `POST /api/transactions`
-5. **Actualiza precios manualmente** → `/api/assets/refresh-user` (botón)
-6. **Cron actualiza automáticamente** → `/api/assets/refresh-all` (cada 20 min via GitHub Actions)
+| Método | Ruta | Descripción |
+| --- | --- | --- |
+| `GET` | `/api/assets` | Catálogo de assets conocidos. |
+| `GET` | `/api/assets/[ticker]` | Datos actuales de un asset (usado por el modal de venta para precargar el precio). |
+| `PUT` | `/api/assets/[ticker]` | Corrección manual de `currentPrice` y/o `name`. |
+| `POST` | `/api/assets/refresh-user` | Refresca los precios de los activos del usuario (botón "Actualizar"). |
 
-## 💡 Beneficios de la Limpieza
+## Divisas
 
-- ✅ **Menos endpoints** = código más fácil de mantener
-- ✅ **Sin duplicación** = una sola fuente de verdad
-- ✅ **Mejor rendimiento** = menos consultas innecesarias
-- ✅ **Más claro** = flujo de datos simplificado
+| Método | Ruta | Descripción |
+| --- | --- | --- |
+| `GET` | `/api/currency-exchanges` | Cambios del usuario enriquecidos con tipo actual y P&L, resumen y tipos vigentes. |
+| `POST` | `/api/currency-exchanges` | Body `{ fromCurrency, toCurrency, amount, exchangeRate, date }` (EUR/USD). |
+| `GET` / `PUT` / `DELETE` | `/api/currency-exchanges/[id]` | Solo sobre cambios propios. |
 
-### Perfil / Configuración
-- `GET /api/profile/contributions` - Disciplina de aportación (serie mensual EUR + métricas)
-  - **Usado en**: app/dashboard/profile/page.js (ContributionDisciplineChart)
-- `GET /api/reports` - Listar informes (radiografías de cartera) del usuario, sin HTML
-  - **Usado en**: components/profile/ReportsSection.js
-- `POST /api/reports` - Subir un informe HTML (`{ title, periodStart: 'YYYY-MM', periodEnd: 'YYYY-MM', html }`, máx. 4 MB)
-  - **Usado en**: components/profile/ReportsSection.js
-- `DELETE /api/reports/[id]` - Eliminar un informe
-  - **Usado en**: components/profile/ReportsSection.js
-- `GET /api/reports/[id]/view` - Devuelve el HTML del informe (auth por cabecera o cookie `auth_token`, para abrir en pestaña nueva)
-  - **Usado en**: components/profile/ReportsSection.js (botón Ver)
+## Staking
+
+| Método | Ruta | Descripción |
+| --- | --- | --- |
+| `GET` | `/api/staking` | Resumen, posiciones activas (con proyección y movimientos), historial y criptos disponibles. |
+| `POST` | `/api/staking` | Body `{ assetTicker, amountStaked, manualApy, lockPeriodDays?, startDate }`. Si ya hay posición activa del ticker, se fusiona (`action: updated`). |
+| `POST` | `/api/staking/[id]` | Retirada. Body `{ amountToUnstake }`. Un cierre total reclama la recompensa como compra a coste 0. Todo en una transacción de BD. |
+
+## Watchlist
+
+| Método | Ruta | Descripción |
+| --- | --- | --- |
+| `GET` | `/api/watchlist` | Activos en seguimiento con precio actual y estado del objetivo. |
+| `POST` | `/api/watchlist` | Body `{ assetTicker, targetPrice?, notes?, assetType? }`. Crea el asset si no existe. |
+| `PATCH` / `DELETE` | `/api/watchlist/[id]` | Solo sobre items propios. |
+
+## Informes
+
+| Método | Ruta | Descripción |
+| --- | --- | --- |
+| `GET` | `/api/reports` | Lista de informes (sin HTML). |
+| `POST` | `/api/reports` | Body `{ title, periodStart: 'YYYY-MM', periodEnd: 'YYYY-MM', html, notes? }` (máx. 4 MB → `413`). |
+| `PATCH` / `DELETE` | `/api/reports/[id]` | `PATCH` actualiza `notes`. |
+| `GET` | `/api/reports/[id]/view` | Devuelve el HTML con CSP restrictiva. Acepta el token por cabecera o por la cookie `auth_token`. |
+
+## Cron jobs (`Authorization: Bearer <CRON_SECRET>`)
+
+| Método | Ruta | Programación | Descripción |
+| --- | --- | --- | --- |
+| `POST` | `/api/cronjobs/refresh-assets` | cada 20 min | Refresca precios de todos los usuarios (acciones solo con mercado abierto, assets inactivos omitidos). Con un JWT de usuario refresca solo ese usuario. |
+| `POST` | `/api/cronjobs/snapshot` | cada hora | Activa/desactiva assets y guarda un snapshot de cartera por usuario. |
+| `POST` | `/api/cronjobs/backup-db` | día 1 de cada mes | Dump SQL completo subido a Cloudflare R2. |

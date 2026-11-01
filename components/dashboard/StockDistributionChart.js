@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import * as echarts from 'echarts';
+import * as echarts from '@/lib/charts/echarts';
 import { usePrivacy } from '@/context/PrivacyContext';
 import Amount from '../Amount';
 
@@ -185,7 +185,7 @@ export default function StockDistributionChart({ data, exchangeRate = 1.1 }) {
         chartInstance.current = null;
       }
     };
-  }, [data, hidden]);
+  }, [data, hidden, totalValueUSD]);
 
   return (
     <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 h-full flex flex-col relative overflow-hidden">

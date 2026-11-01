@@ -14,6 +14,7 @@ import {
   CreditCardIcon,
   DollarIcon,
 } from "../icons";
+import { formatCurrency, formatSignedPercent as formatPercent } from '@/lib/utils/formatters';
 
 export default function DashboardGrid({ data }) {
   if (!data) {
@@ -23,19 +24,6 @@ export default function DashboardGrid({ data }) {
       </div>
     );
   }
-
-  const formatCurrency = (value, currency = "EUR") => {
-    return new Intl.NumberFormat("es-ES", {
-      style: "currency",
-      currency: currency,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value);
-  };
-
-  const formatPercent = (value) => {
-    return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
-  };
 
   // Calcular la ganancia/pérdida absoluta basada en el ROI
   const roiAmount = data.stats.portfolioTotal.eur - data.stats.invested.eur;

@@ -3,6 +3,7 @@
 import Amount from "../Amount";
 import { useState, useEffect, useRef } from "react";
 import { calculateCurrencyExchangeMetrics } from "@/lib/utils/currencyExchangeMetrics";
+import { formatCurrency } from '@/lib/utils/formatters';
 
 export default function CurrencyExchangesTable({ exchanges, exchangeMetrics, onDelete, onEdit }) {
   const [openMenuId, setOpenMenuId] = useState(null);
@@ -25,15 +26,6 @@ export default function CurrencyExchangesTable({ exchanges, exchangeMetrics, onD
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [openMenuId]);
-
-  const formatCurrency = (value, currency) => {
-    return new Intl.NumberFormat("es-ES", {
-      style: "currency",
-      currency,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value);
-  };
 
   const formatDate = (date) => {
     return new Date(date).toLocaleDateString("es-ES", {

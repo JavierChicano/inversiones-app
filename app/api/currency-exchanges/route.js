@@ -1,142 +1,57 @@
-import { NextResponse } from "next/server";
-import { verifyToken } from "@/lib/auth/jwt";
-import { CurrencyExchangeRepository } from "@/lib/repository/currencyExchange.repository";
-import { CurrencyExchangeService } from "@/lib/services/currencyExchange.service";
+import { NextResponse } from 'next/server';
+import { requireUser } from '@/lib/auth/request';
+import { CurrencyExchangeRepository } from '@/lib/repository/currencyExchange.repository';
+import { getCurrentEurUsdRate } from '@/lib/services/currencyExchange.service';
+import { enrichExchange, summarizeExchanges } from '@/lib/utils/currencyExchangeMetrics';
+import { jsonError, readJsonBody, validationError } from '@/lib/api/http';
+import { validateNewCurrencyExchange } from '@/lib/validation/currencyExchange';
 
 /**
- * GET /api/currency-exchanges
- * Obtener todos los cambios de divisa del usuario
+ * GET /api/currency-exchanges — cambios del usuario enriquecidos con el tipo actual, resumen y tipos vigentes
  */
 export async function GET(request) {
   try {
-    const token = request.headers.get("authorization")?.replace("Bearer ", "");
-    if (!token) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-    }
+    const auth = requireUser(request);
+    if (auth.error) return auth.error;
 
-    const decoded = verifyToken(token);
-    if (!decoded) {
-      return NextResponse.json({ error: "Token inválido" }, { status: 401 });
-    }
-
-    // Obtener cambios de divisa
-    const exchanges = await CurrencyExchangeRepository.getByUserId(decoded.userId);
-
-    // Enriquecer con datos actuales
-    const currentRateEurUsd = await CurrencyExchangeService.getCurrentExchangeRate('EUR', 'USD');
-    const enrichedExchanges = exchanges.map(exchange => {
-      // Para EUR→USD, usamos currentRate como EUR/USD
-      // Para USD→EUR, usamos currentRate como USD/EUR (que es 1/EUR/USD)
-      const currentRateForExchange = exchange.fromCurrency === 'EUR' 
-        ? currentRateEurUsd 
-        : 1 / currentRateEurUsd;
-      
-      const profitLoss = CurrencyExchangeService.calculateProfitLoss(
-        exchange.amount,
-        exchange.exchangeRate,
-        currentRateForExchange,
-        exchange.fromCurrency
-      );
-
-      const breakEvenRate = exchange.exchangeRate;
-      const goodTargetRate = CurrencyExchangeService.calculateTargetRate(
-        exchange.exchangeRate, 
-        5, 
-        exchange.fromCurrency
-      );
-      const excellentTargetRate = CurrencyExchangeService.calculateTargetRate(
-        exchange.exchangeRate, 
-        10, 
-        exchange.fromCurrency
-      );
-
-      return {
-        ...exchange,
-        currentRate: currentRateForExchange,
-        ...profitLoss,
-        breakEvenRate,
-        goodTargetRate,
-        excellentTargetRate,
-      };
-    });
-
-    // Obtener resumen
-    const summary = await CurrencyExchangeRepository.getSummary(decoded.userId);
+    const [exchanges, currentRateEurUsd] = await Promise.all([
+      CurrencyExchangeRepository.getByUserId(auth.userId),
+      getCurrentEurUsdRate(),
+    ]);
 
     return NextResponse.json({
-      exchanges: enrichedExchanges,
-      summary,
+      exchanges: exchanges.map((exchange) => enrichExchange(exchange, currentRateEurUsd)),
+      summary: summarizeExchanges(exchanges),
       currentRate: {
         eurToUsd: currentRateEurUsd,
-        usdToEur: 1/currentRateEurUsd,
+        usdToEur: 1 / currentRateEurUsd,
       },
     });
   } catch (error) {
-    console.error("Error en GET /api/currency-exchanges:", error);
-    return NextResponse.json(
-      { error: "Error al obtener cambios de divisa" },
-      { status: 500 }
-    );
+    console.error('Error en GET /api/currency-exchanges:', error);
+    return jsonError('Error al obtener cambios de divisa', 500);
   }
 }
 
 /**
- * POST /api/currency-exchanges
- * Crear un nuevo cambio de divisa
+ * POST /api/currency-exchanges — crear un cambio de divisa
  */
 export async function POST(request) {
   try {
-    const token = request.headers.get("authorization")?.replace("Bearer ", "");
-    if (!token) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-    }
+    const auth = requireUser(request);
+    if (auth.error) return auth.error;
 
-    const decoded = verifyToken(token);
-    if (!decoded) {
-      return NextResponse.json({ error: "Token inválido" }, { status: 401 });
-    }
+    const validation = validateNewCurrencyExchange((await readJsonBody(request)) || {});
+    if (!validation.ok) return validationError(validation);
 
-    const body = await request.json();
-    const { fromCurrency, toCurrency, amount, exchangeRate, date } = body;
-
-    // Validaciones
-    if (!fromCurrency || !toCurrency || !amount || !exchangeRate || !date) {
-      return NextResponse.json(
-        { error: "Faltan campos requeridos" },
-        { status: 400 }
-      );
-    }
-
-    if (!['EUR', 'USD'].includes(fromCurrency) || !['EUR', 'USD'].includes(toCurrency)) {
-      return NextResponse.json(
-        { error: "Divisas no soportadas" },
-        { status: 400 }
-      );
-    }
-
-    if (fromCurrency === toCurrency) {
-      return NextResponse.json(
-        { error: "Las divisas deben ser diferentes" },
-        { status: 400 }
-      );
-    }
-
-    // Crear el cambio
     const newExchange = await CurrencyExchangeRepository.create({
-      userId: decoded.userId,
-      fromCurrency,
-      toCurrency,
-      amount: parseFloat(amount),
-      exchangeRate: parseFloat(exchangeRate),
-      date: new Date(date),
+      userId: auth.userId,
+      ...validation.data,
     });
 
     return NextResponse.json(newExchange, { status: 201 });
   } catch (error) {
-    console.error("Error en POST /api/currency-exchanges:", error);
-    return NextResponse.json(
-      { error: "Error al crear cambio de divisa" },
-      { status: 500 }
-    );
+    console.error('Error en POST /api/currency-exchanges:', error);
+    return jsonError('Error al crear cambio de divisa', 500);
   }
 }

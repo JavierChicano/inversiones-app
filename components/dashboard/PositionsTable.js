@@ -3,7 +3,7 @@
 import Amount from '../Amount';
 
 import { Fragment, useState } from 'react';
-import { formatHoldingTime } from '@/lib/utils/formatters';
+import { formatHoldingTime, formatSignedPercent as formatPercent, formatUsd as formatCurrency } from '@/lib/utils/formatters';
 
 export default function PositionsTable({ data }) {
   const [expanded, setExpanded] = useState({});
@@ -18,19 +18,6 @@ export default function PositionsTable({ data }) {
       </div>
     );
   }
-
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value);
-  };
-
-  const formatPercent = (value) => {
-    return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
-  };
 
   const formatDate = (date) => {
     const parsedDate = new Date(date);

@@ -4,6 +4,7 @@ import Amount from '../Amount';
 
 import { useState, useEffect, useRef } from 'react';
 import { useBackdropClose } from '@/lib/hooks/useBackdropClose';
+import { formatUsd as formatCurrency } from '@/lib/utils/formatters';
 
 export default function TransactionsTable({ data, onTransactionUpdated }) {
   const [openMenuId, setOpenMenuId] = useState(null);
@@ -31,10 +32,14 @@ export default function TransactionsTable({ data, onTransactionUpdated }) {
     };
   }, [openMenuId]);
 
-  useEffect(() => {
+  // Al cambiar los datos (filtros, recarga) se vuelve a la primera página y se cierra el menú.
+  // Se deriva durante el render (patrón recomendado por React) en vez de en un efecto.
+  const [prevData, setPrevData] = useState(data);
+  if (prevData !== data) {
+    setPrevData(data);
     setCurrentPage(1);
     setOpenMenuId(null);
-  }, [data]);
+  }
 
   if (!data || data.length === 0) {
     return (
@@ -46,15 +51,6 @@ export default function TransactionsTable({ data, onTransactionUpdated }) {
       </div>
     );
   }
-
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value);
-  };
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('es-ES', {

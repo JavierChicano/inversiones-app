@@ -2,18 +2,10 @@
 
 import { Fragment, useState } from 'react';
 import Amount from '../Amount';
+import { formatUsd } from '@/lib/utils/formatters';
 
 function formatCoin(value, ticker) {
   return `${(Number(value) || 0).toFixed(4)} ${ticker}`;
-}
-
-function formatUsd(value) {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(Number(value) || 0);
 }
 
 function getElapsedDaysSince(startDate) {

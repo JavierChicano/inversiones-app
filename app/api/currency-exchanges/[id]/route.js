@@ -1,131 +1,69 @@
-import { NextResponse } from "next/server";
-import { verifyToken } from "@/lib/auth/jwt";
-import { CurrencyExchangeRepository } from "@/lib/repository/currencyExchange.repository";
+import { NextResponse } from 'next/server';
+import { requireUser } from '@/lib/auth/request';
+import { CurrencyExchangeRepository } from '@/lib/repository/currencyExchange.repository';
+import { jsonError, parsePositiveInt, readJsonBody, validationError } from '@/lib/api/http';
+import { validateCurrencyExchangeUpdate } from '@/lib/validation/currencyExchange';
 
-/**
- * GET /api/currency-exchanges/[id]
- * Obtener un cambio de divisa específico
- */
+async function loadOwnedExchange(request, params) {
+  const auth = requireUser(request);
+  if (auth.error) return { error: auth.error };
+
+  const { id } = await params;
+  const exchangeId = parsePositiveInt(id);
+  if (!exchangeId) {
+    return { error: jsonError('ID inválido', 400) };
+  }
+
+  const exchange = await CurrencyExchangeRepository.getById(exchangeId, auth.userId);
+  if (!exchange) {
+    return { error: jsonError('Cambio de divisa no encontrado', 404) };
+  }
+
+  return { userId: auth.userId, exchange };
+}
+
+/** GET /api/currency-exchanges/[id] */
 export async function GET(request, { params }) {
   try {
-    const token = request.headers.get("authorization")?.replace("Bearer ", "");
-    if (!token) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-    }
+    const result = await loadOwnedExchange(request, params);
+    if (result.error) return result.error;
 
-    const decoded = verifyToken(token);
-    if (!decoded) {
-      return NextResponse.json({ error: "Token inválido" }, { status: 401 });
-    }
-
-    const { id } = await params;
-    const exchange = await CurrencyExchangeRepository.getById(parseInt(id), decoded.userId);
-
-    if (!exchange) {
-      return NextResponse.json(
-        { error: "Cambio de divisa no encontrado" },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json(exchange);
+    return NextResponse.json(result.exchange);
   } catch (error) {
-    console.error("Error en GET /api/currency-exchanges/[id]:", error);
-    return NextResponse.json(
-      { error: "Error al obtener cambio de divisa" },
-      { status: 500 }
-    );
+    console.error('Error en GET /api/currency-exchanges/[id]:', error);
+    return jsonError('Error al obtener cambio de divisa', 500);
   }
 }
 
-/**
- * PUT /api/currency-exchanges/[id]
- * Actualizar un cambio de divisa
- */
+/** PUT /api/currency-exchanges/[id] */
 export async function PUT(request, { params }) {
   try {
-    const token = request.headers.get("authorization")?.replace("Bearer ", "");
-    if (!token) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-    }
+    const result = await loadOwnedExchange(request, params);
+    if (result.error) return result.error;
 
-    const decoded = verifyToken(token);
-    if (!decoded) {
-      return NextResponse.json({ error: "Token inválido" }, { status: 401 });
-    }
+    const validation = validateCurrencyExchangeUpdate((await readJsonBody(request)) || {}, result.exchange);
+    if (!validation.ok) return validationError(validation);
 
-    const { id } = await params;
-    const body = await request.json();
-    const { fromCurrency, toCurrency, amount, exchangeRate, date } = body;
-
-    // Validar que el cambio existe y pertenece al usuario
-    const existing = await CurrencyExchangeRepository.getById(parseInt(id), decoded.userId);
-    if (!existing) {
-      return NextResponse.json(
-        { error: "Cambio de divisa no encontrado" },
-        { status: 404 }
-      );
-    }
-
-    // Preparar datos de actualización
-    const updateData = {};
-    if (fromCurrency) updateData.fromCurrency = fromCurrency;
-    if (toCurrency) updateData.toCurrency = toCurrency;
-    if (amount) updateData.amount = parseFloat(amount);
-    if (exchangeRate) updateData.exchangeRate = parseFloat(exchangeRate);
-    if (date) updateData.date = new Date(date);
-
-    const updated = await CurrencyExchangeRepository.update(
-      parseInt(id),
-      decoded.userId,
-      updateData
-    );
+    const updated = await CurrencyExchangeRepository.update(result.exchange.id, result.userId, validation.data);
 
     return NextResponse.json(updated);
   } catch (error) {
-    console.error("Error en PUT /api/currency-exchanges/[id]:", error);
-    return NextResponse.json(
-      { error: "Error al actualizar cambio de divisa" },
-      { status: 500 }
-    );
+    console.error('Error en PUT /api/currency-exchanges/[id]:', error);
+    return jsonError('Error al actualizar cambio de divisa', 500);
   }
 }
 
-/**
- * DELETE /api/currency-exchanges/[id]
- * Eliminar un cambio de divisa
- */
+/** DELETE /api/currency-exchanges/[id] */
 export async function DELETE(request, { params }) {
   try {
-    const token = request.headers.get("authorization")?.replace("Bearer ", "");
-    if (!token) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-    }
+    const result = await loadOwnedExchange(request, params);
+    if (result.error) return result.error;
 
-    const decoded = verifyToken(token);
-    if (!decoded) {
-      return NextResponse.json({ error: "Token inválido" }, { status: 401 });
-    }
+    await CurrencyExchangeRepository.delete(result.exchange.id, result.userId);
 
-    const { id } = await params;
-
-    // Validar que el cambio existe y pertenece al usuario
-    const existing = await CurrencyExchangeRepository.getById(parseInt(id), decoded.userId);
-    if (!existing) {
-      return NextResponse.json(
-        { error: "Cambio de divisa no encontrado" },
-        { status: 404 }
-      );
-    }
-
-    await CurrencyExchangeRepository.delete(parseInt(id), decoded.userId);
-
-    return NextResponse.json({ message: "Cambio de divisa eliminado" });
+    return NextResponse.json({ message: 'Cambio de divisa eliminado' });
   } catch (error) {
-    console.error("Error en DELETE /api/currency-exchanges/[id]:", error);
-    return NextResponse.json(
-      { error: "Error al eliminar cambio de divisa" },
-      { status: 500 }
-    );
+    console.error('Error en DELETE /api/currency-exchanges/[id]:', error);
+    return jsonError('Error al eliminar cambio de divisa', 500);
   }
 }

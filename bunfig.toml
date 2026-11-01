@@ -1,0 +1,3 @@
+[test]
+preload = ["./tests/setup.js"]
+# Los tests comparten una base de datos local: se ejecutan en serie.

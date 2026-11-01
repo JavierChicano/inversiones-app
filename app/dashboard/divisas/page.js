@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useRefresh } from '@/app/dashboard/layout';
 import { useAuth } from "@/context/AuthContext";
 import { useCache } from "@/context/CacheContext";
 import CurrencyExchangesTable from "@/components/dashboard/CurrencyExchangesTable";
@@ -12,6 +13,7 @@ import { calculateCurrencyExchangeMetrics } from "@/lib/utils/currencyExchangeMe
 
 export default function DivisasPage() {
   const { token } = useAuth();
+  const { refreshVersion } = useRefresh();
   const { getCachedData, setCachedData } = useCache();
   const [exchanges, setExchanges] = useState([]);
   const [summary, setSummary] = useState(null);
@@ -20,7 +22,7 @@ export default function DivisasPage() {
   const [error, setError] = useState(null);
   const [editModalData, setEditModalData] = useState(null);
 
-  const fetchExchanges = async (skipCache = false) => {
+  const fetchExchanges = useCallback(async (skipCache = false) => {
     if (!token) return;
 
     if (!skipCache) {
@@ -56,11 +58,11 @@ export default function DivisasPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token, getCachedData, setCachedData]);
 
   useEffect(() => {
     fetchExchanges();
-  }, [token]);
+  }, [fetchExchanges, refreshVersion]);
 
   const handleDelete = async (id) => {
     if (!confirm("¿Estás seguro de eliminar este cambio de divisa?")) {

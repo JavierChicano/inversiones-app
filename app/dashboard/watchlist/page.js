@@ -6,9 +6,11 @@ import WatchlistTable from "@/components/dashboard/WatchlistTable";
 import AddWatchlistModal from "@/components/dashboard/AddWatchlistModal";
 import { PlusIcon, RefreshIcon } from "@/components/icons";
 import { useAuth } from "@/context/AuthContext";
+import { useRefresh } from '@/app/dashboard/layout';
 
 export default function PortfolioPage() {
   const { user } = useAuth();
+  const { refreshVersion } = useRefresh();
   const [watchlist, setWatchlist] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -19,7 +21,7 @@ export default function PortfolioPage() {
       fetchWatchlist();
       fetchExistingAssets();
     }
-  }, [user]);
+  }, [user, refreshVersion]);
 
   const fetchWatchlist = async () => {
     try {

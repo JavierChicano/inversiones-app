@@ -1,89 +1,63 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, useRef } from 'react';
+import { createContext, useCallback, useContext, useMemo, useRef } from 'react';
 
-const CacheContext = createContext();
+const CacheContext = createContext(null);
 
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
-const PROGRESSION_CACHE_DURATION = 15 * 60 * 1000; // 15 minutos
+export const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
+export const PROGRESSION_CACHE_DURATION = 15 * 60 * 1000; // 15 minutos
 
+/**
+ * Caché en memoria de respuestas de la API con TTL por clave.
+ *
+ * Se guarda en un ref (no en estado): escribir en la caché no provoca re-renders de toda
+ * la app y las funciones expuestas son estables, así que pueden usarse como dependencias
+ * de useEffect/useCallback sin disparar recargas. La expiración se comprueba al leer.
+ */
 export function CacheProvider({ children }) {
-  const [cache, setCache] = useState({});
-  const timersRef = useRef({});
+  const store = useRef(new Map());
 
   const getCachedData = useCallback((key) => {
-    const cached = cache[key];
-    if (!cached) return null;
+    const entry = store.current.get(key);
+    if (!entry) return null;
 
-    const ttl = cached.ttl ?? CACHE_DURATION;
-    if (Date.now() - cached.timestamp < ttl) {
-      return cached.data;
+    if (Date.now() - entry.timestamp < entry.ttl) {
+      return entry.data;
     }
 
+    store.current.delete(key);
     return null;
-  }, [cache]);
-
-  const invalidateCache = useCallback((key) => {
-    if (key) {
-      // Invalidar una clave específica
-      setCache(prev => {
-        const newCache = { ...prev };
-        delete newCache[key];
-        return newCache;
-      });
-      
-      if (timersRef.current[key]) {
-        clearTimeout(timersRef.current[key]);
-        delete timersRef.current[key];
-      }
-    } else {
-      // Invalidar toda la caché
-      setCache({});
-      Object.values(timersRef.current).forEach(timer => clearTimeout(timer));
-      timersRef.current = {};
-    }
   }, []);
 
   const setCachedData = useCallback((key, data, ttl = CACHE_DURATION) => {
-    setCache(prev => ({
-      ...prev,
-      [key]: {
-        data,
-        timestamp: Date.now(),
-        ttl,
-      },
-    }));
+    store.current.set(key, { data, timestamp: Date.now(), ttl });
+  }, []);
 
-    // Limpiar el temporizador anterior si existe
-    if (timersRef.current[key]) {
-      clearTimeout(timersRef.current[key]);
+  const invalidateCache = useCallback((key) => {
+    if (key) {
+      store.current.delete(key);
+    } else {
+      store.current.clear();
     }
+  }, []);
 
-    // Configurar auto-invalidación después de CACHE_DURATION
-    timersRef.current[key] = setTimeout(() => {
-      invalidateCache(key);
-    }, ttl);
-  }, [invalidateCache]);
-
+  // Tras refrescar precios, cualquier dato cacheado (stats, progresión, divisas, staking...) está obsoleto
   const invalidateAllDashboardData = useCallback(() => {
-    // Invalidar todas las claves relacionadas con el dashboard
-    const dashboardKeys = ['dashboard-stats', 'transactions', 'portfolio-positions', 'staking-hub'];
-    dashboardKeys.forEach(key => invalidateCache(key));
-  }, [invalidateCache]);
+    store.current.clear();
+  }, []);
 
-  const value = {
-    getCachedData,
-    setCachedData,
-    invalidateCache,
-    invalidateAllDashboardData,
-    PROGRESSION_CACHE_DURATION,
-  };
-
-  return (
-    <CacheContext.Provider value={value}>
-      {children}
-    </CacheContext.Provider>
+  const value = useMemo(
+    () => ({
+      getCachedData,
+      setCachedData,
+      invalidateCache,
+      invalidateAllDashboardData,
+      PROGRESSION_CACHE_DURATION,
+    }),
+    [getCachedData, setCachedData, invalidateCache, invalidateAllDashboardData]
   );
+
+  return <CacheContext.Provider value={value}>{children}</CacheContext.Provider>;
 }
 
 export function useCache() {

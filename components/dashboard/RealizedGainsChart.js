@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import * as echarts from 'echarts';
+import * as echarts from '@/lib/charts/echarts';
 
 const GROUP_BY_OPTIONS = [
   { value: 'day', label: 'Día' },
@@ -304,7 +304,7 @@ export default function RealizedGainsChart({ data, exchangeRate = 1.1 }) {
       window.removeEventListener('resize', handleResize);
       chart.dispose();
     };
-  }, [groupedData]);
+  }, [groupedData, groupBy, barSeriesName]);
 
   return (
       <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 h-full">

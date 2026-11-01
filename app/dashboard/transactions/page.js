@@ -1,6 +1,7 @@
 "use client";
 import QuickAddTransaction from "@/components/dashboard/QuickAddTransaction";
-import { useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
+import { useRefresh } from '@/app/dashboard/layout';
 import TransactionsTable from "@/components/dashboard/TransactionsTable";
 import { useAuth } from "@/context/AuthContext";
 import { useCache } from "@/context/CacheContext";
@@ -8,6 +9,7 @@ import { FilterIcon, ChevronDownIcon, ChevronUpIcon } from "@/components/icons";
 
 export default function TransactionsPage() {
   const { token } = useAuth();
+  const { refreshVersion } = useRefresh();
   const { getCachedData, setCachedData, invalidateCache } = useCache();
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -21,7 +23,7 @@ export default function TransactionsPage() {
   const [filterDateTo, setFilterDateTo] = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
-  const fetchTransactions = async (skipCache = false) => {
+  const fetchTransactions = useCallback(async (skipCache = false) => {
     if (!token) return;
 
     // Intentar obtener datos del caché primero (solo si no se salta)
@@ -56,11 +58,11 @@ export default function TransactionsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token, getCachedData, setCachedData]);
 
   useEffect(() => {
     fetchTransactions();
-  }, [token]);
+  }, [fetchTransactions, refreshVersion]);
 
   // Obtener lista única de tickers para el filtro
   const uniqueTickers = useMemo(() => {

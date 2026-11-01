@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import * as echarts from 'echarts';
+import * as echarts from '@/lib/charts/echarts';
 
 export default function WinRateChart({ winRate, positions }) {
   const chartRef = useRef(null);

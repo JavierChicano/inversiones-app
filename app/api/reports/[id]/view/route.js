@@ -1,6 +1,10 @@
-import { NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth/jwt';
+import { requireUser } from '@/lib/auth/request';
 import { findReportById } from '@/lib/repository/report.repository';
+import { jsonError } from '@/lib/api/http';
+import { parseReportId } from '@/lib/validation/reports';
+
+export const REPORT_CSP =
+  "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https:; font-src data: https:; img-src data: blob: https:; connect-src 'none'; form-action 'none'; base-uri 'none'";
 
 /**
  * GET /api/reports/[id]/view
@@ -10,24 +14,15 @@ import { findReportById } from '@/lib/repository/report.repository';
  */
 export async function GET(request, { params }) {
   try {
-    const headerToken = request.headers.get('authorization')?.replace('Bearer ', '');
-    const cookieToken = request.cookies.get('auth_token')?.value;
-    const decoded = verifyToken(headerToken || cookieToken);
-
-    if (!decoded?.userId) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-    }
+    const auth = requireUser(request, { allowCookie: true });
+    if (auth.error) return auth.error;
 
     const { id } = await params;
-    const reportId = Number(id);
-    if (!Number.isInteger(reportId) || reportId <= 0) {
-      return NextResponse.json({ error: 'ID inválido' }, { status: 400 });
-    }
+    const reportId = parseReportId(id);
+    if (!reportId) return jsonError('ID inválido', 400);
 
-    const report = await findReportById(reportId, decoded.userId);
-    if (!report) {
-      return NextResponse.json({ error: 'Informe no encontrado' }, { status: 404 });
-    }
+    const report = await findReportById(reportId, auth.userId);
+    if (!report) return jsonError('Informe no encontrado', 404);
 
     return new Response(report.html, {
       status: 200,
@@ -37,12 +32,11 @@ export async function GET(request, { params }) {
         'X-Content-Type-Options': 'nosniff',
         // Los informes son autocontenidos: se permiten scripts/estilos inline (tooltips, tema)
         // pero se bloquea cualquier conexión saliente con datos del usuario.
-        'Content-Security-Policy':
-          "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https:; font-src data: https:; img-src data: blob: https:; connect-src 'none'; form-action 'none'; base-uri 'none'",
+        'Content-Security-Policy': REPORT_CSP,
       },
     });
   } catch (error) {
     console.error('Error en GET /api/reports/[id]/view:', error);
-    return NextResponse.json({ error: 'Error al cargar el informe' }, { status: 500 });
+    return jsonError('Error al cargar el informe', 500);
   }
 }

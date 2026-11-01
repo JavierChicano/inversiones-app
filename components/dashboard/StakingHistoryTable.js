@@ -1,15 +1,7 @@
 'use client';
 
 import Amount from '../Amount';
-
-function formatUsd(value) {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(Number(value) || 0);
-}
+import { formatUsd } from '@/lib/utils/formatters';
 
 function formatCoin(value, ticker) {
   return `${(Number(value) || 0).toFixed(6)} ${ticker}`;

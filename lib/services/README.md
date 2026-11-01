@@ -8,9 +8,8 @@ Este servicio se encarga de obtener datos de assets (acciones y criptomonedas) d
 - **API:** https://api.coingecko.com/api/v3
 - **Tipo:** Gratuita, sin API key necesaria
 - **Datos proporcionados:**
-  - Nombre completo
-  - Precio actual en USD
-  - Logo (imagen)
+  - Nombre completo (`/coins/{id}`, solo al crear el asset)
+  - Precio actual en USD (`/simple/price`, todos los tickers en una sola llamada en el refresco)
   
 **Tickers soportados:**
 - BTC, ETH, USDT, BNB, SOL, XRP, USDC, ADA, DOGE, TRX, TON, LINK, AVAX, DOT, MATIC
@@ -45,8 +44,8 @@ Este servicio se encarga de obtener datos de assets (acciones y criptomonedas) d
 ### Creación automática de assets
 
 Cuando se crea un asset con solo `ticker` y `type`, el sistema automáticamente:
-1. Consulta la API externa correspondiente
-2. Obtiene el nombre, precio actual y logo
+1. Consulta la API externa correspondiente (con timeout de 10 s)
+2. Obtiene el nombre y el precio actual
 3. Guarda los datos en la base de datos
 
 ```javascript
@@ -55,17 +54,13 @@ await createAsset({
   ticker: 'BTC',
   type: 'CRYPTO'
 });
-// El sistema obtiene automáticamente: name, currentPrice, logoUrl
+// El sistema obtiene automáticamente: name, currentPrice
 ```
 
 ## Manejo de Errores
 
-Si la API externa falla o el ticker no se encuentra:
-- Se retornan valores por defecto:
-  - `name`: el ticker proporcionado
-  - `currentPrice`: 0
-- El error se registra en la consola
-- La aplicación continúa funcionando
+- **Al crear un asset** (`fetchAssetData`): si la API falla o el ticker no se encuentra se usan valores por defecto (`name` = ticker, `currentPrice` = 0) y la aplicación continúa.
+- **Al refrescar precios** (`fetchAssetPrice`, `fetchStockPrices`, `fetchCryptoPrices`): un fallo o un precio no válido (0, vacío) se reporta como error y **se conserva el precio anterior** en la base de datos. Nunca se escribe un 0 por un fallo del proveedor.
 
 ## Limitaciones
 

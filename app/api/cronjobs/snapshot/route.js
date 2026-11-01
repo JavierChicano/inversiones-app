@@ -1,207 +1,120 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/db/index';
-import { assets, transactions, users, watchlist } from '@/lib/db/schema';
-import { eq, inArray } from 'drizzle-orm';
-import { createSnapshot } from '@/lib/repository/portfolio.repository';
+import { isCronRequest } from '@/lib/auth/request';
+import { findAllAssets, setAssetsActive } from '@/lib/repository/asset.repository';
+import { findAllTransactions } from '@/lib/repository/transaction.repository';
+import { findAllWatchlistTickers } from '@/lib/repository/watchlist.repository';
+import { findAllUserIds } from '@/lib/repository/user.repository';
+import { createSnapshots } from '@/lib/repository/portfolio.repository';
+import { jsonError } from '@/lib/api/http';
+import { buildHoldings, buildPortfolio, summarizeOpenPositions } from '@/lib/utils/portfolio';
 
-export async function POST(req) {
+const FX_TICKER = 'EURUSD';
+const HOLDING_EPSILON = 0.000001;
+
+export const maxDuration = 60;
+
+/**
+ * POST /api/cronjobs/snapshot (protegido con CRON_SECRET)
+ *  1. Activa/desactiva assets según haya posiciones abiertas o estén en alguna watchlist.
+ *  2. Guarda un snapshot (valor e invertido) de la cartera de cada usuario, con el mismo
+ *     método de valoración que el dashboard.
+ */
+export async function POST(request) {
   try {
-    // Verificar autenticación
-    const authHeader = req.headers.get('authorization');
-    const isCronJob = authHeader === `Bearer ${process.env.CRON_SECRET}`;
-
-    if (!isCronJob) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    if (!isCronRequest(request)) {
+      return jsonError('No autorizado', 401);
     }
 
     console.log('=== Cron Job: Snapshot y Sanitización ===');
 
-    // 1. ACTIVAR/DESACTIVAR ASSETS - Marcar como inactivos los que ya no se necesitan
-    console.log('--- Gestionando estado de assets ---');
-    
-    // A. Obtener todas las transacciones de TODOS los usuarios
-    const allTransactions = await db
-      .select({ 
-        ticker: transactions.assetTicker, 
-        type: transactions.type, 
-        quantity: transactions.quantity 
-      })
-      .from(transactions);
-
-    // B. Calcular Holdings (Cantidad neta) por Ticker
-    const holdingsMap = new Map();
-
-    for (const tx of allTransactions) {
-        const current = holdingsMap.get(tx.ticker) || 0;
-        // Sumamos si es compra, restamos si es venta
-        if (tx.type === 'BUY') {
-            holdingsMap.set(tx.ticker, current + tx.quantity);
-        } else if (tx.type === 'SELL') {
-            holdingsMap.set(tx.ticker, current - tx.quantity);
-        }
-    }
-
-    // C. Filtrar tickers que tienen saldo positivo (> 0.000001 para evitar errores de float)
-    const activeHoldingTickers = [];
-    holdingsMap.forEach((qty, ticker) => {
-        if (qty > 0.000001) {
-            activeHoldingTickers.push(ticker);
-        }
-    });
-
-    console.log(`Tickers con posiciones abiertas: ${activeHoldingTickers.length}`);
-
-    // D. Obtener tickers en Watchlist (Estos se quedan SIEMPRE activos, aunque no tengas saldo)
-    const tickersInWatchlist = await db
-      .selectDistinct({ ticker: watchlist.assetTicker })
-      .from(watchlist);
-    const watchlistList = tickersInWatchlist.map(t => t.ticker);
-
-    // E. Lista FINAL de assets que deben estar ACTIVOS (Posiciones abiertas + Watchlist + EURUSD)
-    // Usamos Set para eliminar duplicados y .trim() por seguridad
-    const tickersToKeepActive = new Set([
-        ...activeHoldingTickers.map(t => t.trim()),
-        ...watchlistList.map(t => t.trim())
+    const now = new Date();
+    const [allTransactions, watchlistTickers, allAssets, userIds] = await Promise.all([
+      findAllTransactions(),
+      findAllWatchlistTickers(),
+      findAllAssets(),
+      findAllUserIds(),
     ]);
-    
-    // Aseguramos que EURUSD siempre esté activo
-    tickersToKeepActive.add('EURUSD');
 
-    // F. Actualizar estado de assets
-    const allAssets = await db.select({ ticker: assets.ticker }).from(assets);
-    
-    // Identificar los que deben desactivarse
+    // 1. Estado de assets
+    const holdings = buildHoldings(allTransactions);
+    const tickersToKeepActive = new Set([FX_TICKER]);
+    for (const [ticker, quantity] of Object.entries(holdings)) {
+      if (quantity > HOLDING_EPSILON) tickersToKeepActive.add(ticker.trim());
+    }
+    for (const ticker of watchlistTickers) {
+      tickersToKeepActive.add(String(ticker).trim());
+    }
+
     const tickersToDeactivate = allAssets
-        .map(a => a.ticker)
-        .filter(ticker => !tickersToKeepActive.has(ticker));
-
-    // Identificar los que deben activarse (por si estaban desactivados y ahora vuelven a usarse)
+      .filter((asset) => !tickersToKeepActive.has(asset.ticker) && asset.isActive !== false)
+      .map((asset) => asset.ticker);
     const tickersToActivate = allAssets
-        .map(a => a.ticker)
-        .filter(ticker => tickersToKeepActive.has(ticker));
+      .filter((asset) => tickersToKeepActive.has(asset.ticker) && asset.isActive === false)
+      .map((asset) => asset.ticker);
 
-    // Desactivar assets no utilizados
-    if (tickersToDeactivate.length > 0) {
-      console.log(`⏸️ Desactivando ${tickersToDeactivate.length} assets sin uso:`);
-      console.log(`   Tickers: [${tickersToDeactivate.join(', ')}]`);
-      
-      await db
-        .update(assets)
-        .set({ isActive: false })
-        .where(inArray(assets.ticker, tickersToDeactivate));
-      
-      console.log(`✅ Assets desactivados (no se refrescarán en cron jobs).`);
-    } else {
-      console.log('✓ No hay assets para desactivar.');
-    }
+    await setAssetsActive(tickersToDeactivate, false);
+    await setAssetsActive(tickersToActivate, true);
 
-    // Activar assets que vuelven a usarse
-    if (tickersToActivate.length > 0) {
-      await db
-        .update(assets)
-        .set({ isActive: true })
-        .where(inArray(assets.ticker, tickersToActivate));
-      
-      console.log(`✅ ${tickersToActivate.length} assets marcados como activos.`);
-    }
-
-    // 2. GUARDAR SNAPSHOTS - Para todos los usuarios
-    console.log('--- Guardando snapshots ---');
-    
-    const allUsers = await db.select({ id: users.id }).from(users);
-    const userIds = allUsers.map(u => u.id);
+    console.log(`Assets desactivados: ${tickersToDeactivate.length} [${tickersToDeactivate.join(', ')}]`);
+    console.log(`Assets reactivados: ${tickersToActivate.length} [${tickersToActivate.join(', ')}]`);
 
     if (userIds.length === 0) {
-      console.log('No hay usuarios en el sistema');
-      return NextResponse.json({ 
+      return NextResponse.json({
         success: true,
         message: 'Gestión de assets completada, no hay usuarios para snapshots',
         assetsDeactivated: tickersToDeactivate.length,
         assetsActivated: tickersToActivate.length,
-        snapshots: 0
+        snapshots: 0,
       });
     }
 
-    // Obtener precios actualizados
-    const assetPrices = await db.select().from(assets);
-    const priceMap = assetPrices.reduce((acc, asset) => {
-      acc[asset.ticker] = asset.currentPrice || 0;
-      return acc;
-    }, {});
+    // 2. Snapshots por usuario
+    const priceMap = {};
+    for (const asset of allAssets) {
+      priceMap[asset.ticker] = asset.currentPrice || 0;
+    }
 
-    // Para cada usuario, calcular y guardar snapshot
-    const snapshotPromises = userIds.map(async (uid) => {
-      try {
-        // Obtener transacciones del usuario
-        const userTxs = await db
-          .select()
-          .from(transactions)
-          .where(eq(transactions.userId, uid));
+    const transactionsByUser = new Map();
+    for (const tx of allTransactions) {
+      if (!transactionsByUser.has(tx.userId)) transactionsByUser.set(tx.userId, []);
+      transactionsByUser.get(tx.userId).push(tx);
+    }
 
-        if (userTxs.length === 0) {
-          return { userId: uid, success: false, reason: 'no_transactions' };
-        }
+    const snapshotResults = [];
+    const rowsToInsert = [];
 
-        // Calcular portfolio actual
-        const portfolio = {};
-
-        userTxs.forEach((tx) => {
-          if (!portfolio[tx.assetTicker]) {
-            portfolio[tx.assetTicker] = { quantity: 0, totalCost: 0 };
-          }
-
-          if (tx.type === 'BUY') {
-            portfolio[tx.assetTicker].quantity += tx.quantity;
-            portfolio[tx.assetTicker].totalCost += tx.quantity * tx.pricePerUnit + tx.fees;
-          } else if (tx.type === 'SELL') {
-            const avgBuyPrice = portfolio[tx.assetTicker].quantity > 0
-              ? portfolio[tx.assetTicker].totalCost / portfolio[tx.assetTicker].quantity
-              : 0;
-            portfolio[tx.assetTicker].quantity -= tx.quantity;
-            portfolio[tx.assetTicker].totalCost -= tx.quantity * avgBuyPrice;
-          }
-        });
-
-        // Calcular valor total actual
-        let totalValue = 0;
-        let currentInvested = 0;
-
-        Object.entries(portfolio).forEach(([ticker, position]) => {
-          if (position.quantity > 0) {
-            const currentPrice = priceMap[ticker] || 0;
-            totalValue += position.quantity * currentPrice;
-            currentInvested += position.totalCost;
-          }
-        });
-
-        // Guardar snapshot
-        await createSnapshot({
-          userId: uid,
-          date: new Date(),
-          totalInvested: currentInvested,
-          totalValue: totalValue,
-        });
-
-        return { 
-          userId: uid, 
-          success: true, 
-          totalValue, 
-          totalInvested: currentInvested 
-        };
-      } catch (error) {
-        console.error(`Error creando snapshot para usuario ${uid}:`, error);
-        return { userId: uid, success: false, error: error.message };
+    for (const userId of userIds) {
+      const userTransactions = transactionsByUser.get(userId);
+      if (!userTransactions || userTransactions.length === 0) {
+        snapshotResults.push({ userId, success: false, reason: 'no_transactions' });
+        continue;
       }
-    });
 
-    const snapshotResults = await Promise.all(snapshotPromises);
-    const successfulSnapshots = snapshotResults.filter(r => r.success);
-    
+      const portfolio = buildPortfolio(userTransactions);
+      const { totalCurrentValue, currentInvested } = summarizeOpenPositions(portfolio, { priceMap, now });
+
+      rowsToInsert.push({ userId, date: now, totalInvested: currentInvested, totalValue: totalCurrentValue });
+      snapshotResults.push({ userId, success: true, totalValue: totalCurrentValue, totalInvested: currentInvested });
+    }
+
+    try {
+      await createSnapshots(rowsToInsert);
+    } catch (error) {
+      console.error('Error guardando snapshots:', error);
+      for (const result of snapshotResults) {
+        if (result.success) {
+          result.success = false;
+          result.error = error.message;
+        }
+      }
+    }
+
+    const successfulSnapshots = snapshotResults.filter((result) => result.success);
     console.log(`Snapshots creados: ${successfulSnapshots.length}/${userIds.length}`);
     console.log('======================================');
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       message: `Proceso completado: ${tickersToDeactivate.length} assets desactivados, ${successfulSnapshots.length} snapshots creados`,
       assetsDeactivated: tickersToDeactivate.length,
       deactivatedTickers: tickersToDeactivate,
@@ -209,12 +122,8 @@ export async function POST(req) {
       snapshots: successfulSnapshots.length,
       snapshotDetails: snapshotResults,
     });
-
   } catch (error) {
-    console.error("Error en snapshot:", error);
-    return NextResponse.json(
-      { error: 'Error en proceso de snapshot', details: error.message }, 
-      { status: 500 }
-    );
+    console.error('Error en snapshot:', error);
+    return NextResponse.json({ error: 'Error en proceso de snapshot', details: error.message }, { status: 500 });
   }
 }

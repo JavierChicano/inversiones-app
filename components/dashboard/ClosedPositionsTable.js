@@ -3,9 +3,15 @@
 import Amount from '../Amount';
 
 import { useState, Fragment } from 'react';
-import { formatHoldingTime } from '@/lib/utils/formatters';
+import { formatCurrency, formatHoldingTime, formatSignedPercent as formatPercent } from '@/lib/utils/formatters';
 
 export default function ClosedPositionsTable({ data }) {
+  const [expanded, setExpanded] = useState({});
+
+  const toggleExpanded = (ticker) => {
+    setExpanded((prev) => ({ ...prev, [ticker]: !prev[ticker] }));
+  };
+
   if (!data || data.length === 0) {
     return (
       <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6">
@@ -14,19 +20,6 @@ export default function ClosedPositionsTable({ data }) {
       </div>
     );
   }
-
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('es-ES', {
-      style: 'currency',
-      currency: 'EUR',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value);
-  };
-
-  const formatPercent = (value) => {
-    return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
-  };
 
   const getAssetTypeLabel = (type) => {
     if (type === 'CRYPTO') return 'Crypto';
@@ -37,12 +30,6 @@ export default function ClosedPositionsTable({ data }) {
   const getAssetColor = (type) => {
     if (type === 'CRYPTO') return 'bg-yellow-600';
     return 'bg-blue-500';
-  };
-
-  const [expanded, setExpanded] = useState({});
-
-  const toggleExpanded = (ticker) => {
-    setExpanded((prev) => ({ ...prev, [ticker]: !prev[ticker] }));
   };
 
   return (

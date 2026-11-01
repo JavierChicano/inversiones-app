@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRefresh } from '@/app/dashboard/layout';
 import { useAuth } from '@/context/AuthContext';
 import { useCache } from '@/context/CacheContext';
 import StatsCard from '@/components/dashboard/StatsCard';
@@ -15,25 +16,11 @@ import {
   PercentIcon,
   PlusIcon,
 } from '@/components/icons';
-
-function formatCoin(value) {
-  return new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 4,
-  }).format(Number(value) || 0);
-}
-
-function formatUsd(value) {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(Number(value) || 0);
-}
+import { formatCoin, formatUsd } from '@/lib/utils/formatters';
 
 export default function StakingHubPage() {
   const { token } = useAuth();
+  const { refreshVersion } = useRefresh();
   const { getCachedData, setCachedData, invalidateCache } = useCache();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -55,7 +42,7 @@ export default function StakingHubPage() {
   const [selectedPosition, setSelectedPosition] = useState(null);
   const [isUnstakeModalOpen, setIsUnstakeModalOpen] = useState(false);
 
-  const fetchStakingData = async (skipCache = false) => {
+  const fetchStakingData = useCallback(async (skipCache = false) => {
     if (!token) return;
 
     if (!skipCache) {
@@ -90,7 +77,7 @@ export default function StakingHubPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token, getCachedData, setCachedData]);
 
   const handleCreatePosition = async (payload) => {
     const response = await fetch('/api/staking', {
@@ -142,7 +129,7 @@ export default function StakingHubPage() {
 
   useEffect(() => {
     fetchStakingData();
-  }, [token]);
+  }, [fetchStakingData, refreshVersion]);
 
   const totals = useMemo(() => {
     const annualUsd = (data.positions || []).reduce(

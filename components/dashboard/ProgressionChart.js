@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useMemo } from 'react';
-import * as echarts from 'echarts';
+import * as echarts from '@/lib/charts/echarts';
 import { useCache } from '@/context/CacheContext';
 import ProgressionChartSkeleton from '@/components/dashboard/ProgressionChartSkeleton';
 

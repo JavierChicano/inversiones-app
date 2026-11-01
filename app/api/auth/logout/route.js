@@ -1,15 +1,7 @@
 import { NextResponse } from 'next/server';
+import { clearAuthCookie } from '@/lib/auth/cookies';
 
 export async function POST() {
-  const response = NextResponse.json({ success: true, message: 'Sesion cerrada' });
-
-  response.cookies.set('auth_token', '', {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    path: '/',
-    maxAge: 0,
-  });
-
-  return response;
+  const response = NextResponse.json({ success: true, message: 'Sesión cerrada' });
+  return clearAuthCookie(response);
 }

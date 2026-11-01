@@ -9,6 +9,7 @@ import ChangePasswordModal from '@/components/profile/ChangePasswordModal';
 import UploadReportModal from '@/components/profile/UploadReportModal';
 import { LockIcon, PlusIcon, RefreshIcon } from '@/components/icons';
 import { useAuth } from '@/context/AuthContext';
+import { useRefresh } from '@/app/dashboard/layout';
 import { useCache } from '@/context/CacheContext';
 import { exportUserDataToCSV } from '@/lib/utils/exportData';
 
@@ -35,6 +36,7 @@ const DownloadIcon = ({ className = 'w-4 h-4' }) => (
 
 export default function ProfilePage() {
   const { token, user } = useAuth();
+  const { refreshVersion } = useRefresh();
   const { getCachedData, setCachedData } = useCache();
 
   const [stats, setStats] = useState(null);
@@ -98,7 +100,7 @@ export default function ProfilePage() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  }, [token, refreshVersion]);
 
   // Disciplina de aportación
   useEffect(() => {
@@ -143,7 +145,7 @@ export default function ProfilePage() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  }, [token, refreshVersion]);
 
   const handleExportData = async () => {
     setExportMessage(null);
