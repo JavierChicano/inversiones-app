@@ -16,7 +16,20 @@ export default function AuthModal() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const backdropProps = useBackdropClose(() => handleClose());
+  const resetForm = () => {
+    setEmail('');
+    setPassword('');
+    setName('');
+    setError('');
+    setShowPassword(false);
+  };
+
+  const handleClose = () => {
+    resetForm();
+    closeAuthModal();
+  };
+
+  const backdropProps = useBackdropClose(handleClose);
 
   if (!isAuthModalOpen) return null;
 
@@ -70,22 +83,9 @@ export default function AuthModal() {
     }
   };
 
-  const resetForm = () => {
-    setEmail('');
-    setPassword('');
-    setName('');
-    setError('');
-    setShowPassword(false);
-  };
-
   const switchMode = () => {
     setIsLogin(!isLogin);
     resetForm();
-  };
-
-  const handleClose = () => {
-    resetForm();
-    closeAuthModal();
   };
 
   return (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import WatchlistTable from "@/components/dashboard/WatchlistTable";
 import AddWatchlistModal from "@/components/dashboard/AddWatchlistModal";
@@ -16,14 +16,7 @@ export default function PortfolioPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [existingAssets, setExistingAssets] = useState([]);
 
-  useEffect(() => {
-    if (user) {
-      fetchWatchlist();
-      fetchExistingAssets();
-    }
-  }, [user, refreshVersion]);
-
-  const fetchWatchlist = async () => {
+  const fetchWatchlist = useCallback(async () => {
     try {
       const token = localStorage.getItem("auth_token");
       // Si no hay token, no hacemos la llamada y paramos aquí.
@@ -46,9 +39,9 @@ export default function PortfolioPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const fetchExistingAssets = async () => {
+  const fetchExistingAssets = useCallback(async () => {
     try {
       const token = localStorage.getItem("auth_token");
       if (!token) return;
@@ -65,7 +58,14 @@ export default function PortfolioPage() {
     } catch (error) {
       console.error("Error fetching assets:", error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      fetchWatchlist();
+      fetchExistingAssets();
+    }
+  }, [user, refreshVersion, fetchWatchlist, fetchExistingAssets]);
 
   const handleAddToWatchlist = async (item) => {
     try {

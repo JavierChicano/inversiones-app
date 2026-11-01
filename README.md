@@ -29,6 +29,8 @@ Variables de entorno:
 | `CRON_SECRET` | Autoriza las llamadas de los cron jobs |
 | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` | Backups en Cloudflare R2 (ver `scripts/db/README.md`) |
 
+Requisitos: **Node.js 26** (LTS; versión indicada en `.node-version`) y **Bun 1.2+**. Next.js 16 funciona con Node ≥ 20.9; en Vercel el proyecto corre con la versión por defecto de la plataforma (24.x), ya que Vercel Functions aún no ofrece Node 26.
+
 > En Windows `next build` falla por permisos de symlink (error 1314); valida los cambios con `bun run dev`. En Vercel el build funciona.
 
 ## Scripts

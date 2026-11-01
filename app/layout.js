@@ -5,7 +5,7 @@ import { CacheProvider } from "@/context/CacheContext";
 import { PrivacyProvider, PRIVACY_STORAGE_KEY } from "@/context/PrivacyContext";
 import AuthModal from "@/components/AuthModal";
 import Navbar from '@/components/Navbar';
-import { Analytics } from "@vercel/analytics/react"
+import { Analytics } from "@vercel/analytics/next";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
