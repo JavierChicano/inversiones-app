@@ -6,10 +6,9 @@ import { findAllWatchlistTickers } from '@/lib/repository/watchlist.repository';
 import { findAllUserIds } from '@/lib/repository/user.repository';
 import { createSnapshots } from '@/lib/repository/portfolio.repository';
 import { jsonError } from '@/lib/api/http';
-import { buildHoldings, buildPortfolio, summarizeOpenPositions } from '@/lib/utils/portfolio';
+import { QUANTITY_EPSILON, buildHoldings, buildPortfolio, summarizeOpenPositions } from '@/lib/utils/portfolio';
 
 const FX_TICKER = 'EURUSD';
-const HOLDING_EPSILON = 0.000001;
 
 export const maxDuration = 60;
 
@@ -39,7 +38,7 @@ export async function POST(request) {
     const holdings = buildHoldings(allTransactions);
     const tickersToKeepActive = new Set([FX_TICKER]);
     for (const [ticker, quantity] of Object.entries(holdings)) {
-      if (quantity > HOLDING_EPSILON) tickersToKeepActive.add(ticker.trim());
+      if (quantity > QUANTITY_EPSILON) tickersToKeepActive.add(ticker.trim());
     }
     for (const ticker of watchlistTickers) {
       tickersToKeepActive.add(String(ticker).trim());

@@ -190,6 +190,28 @@ describe('summarizeOpenPositions / buildDashboardStats', () => {
     expect(stockDistribution).toHaveLength(0);
   });
 
+  test('una posición vendida por completo con residuo de coma flotante no aparece', () => {
+    // Caso real (NFLX): la suma de compras menos ventas deja ~3.55e-15 en lugar de 0
+    const transactions = [
+      tx({ id: 21, quantity: 13.84734043, pricePerUnit: 94, date: '2025-12-29' }),
+      tx({ id: 25, quantity: 9.20125716, pricePerUnit: 89.09, date: '2026-01-15' }),
+      tx({ id: 27, quantity: 4.89174379, pricePerUnit: 82.12, date: '2026-02-03' }),
+      tx({ id: 32, type: 'SELL', quantity: 27.94034138, pricePerUnit: 102.08, date: '2026-04-10' }),
+      tx({ id: 33, quantity: 21, pricePerUnit: 96.59, date: '2026-04-20' }),
+      tx({ id: 54, quantity: 9.41727007, pricePerUnit: 92.53, date: '2026-04-24' }),
+      tx({ id: 41, quantity: 11.50925819, pricePerUnit: 86.95, date: '2026-05-13' }),
+      tx({ id: 53, quantity: 17.2196814, pricePerUnit: 77.84, date: '2026-06-17' }),
+      tx({ id: 86, type: 'SELL', quantity: 59.14620966, pricePerUnit: 62.72, fees: 1.12, date: '2026-11-02' }),
+    ];
+    const portfolio = buildPortfolio(transactions);
+    const { stockDistribution } = summarizeOpenPositions(portfolio, { priceMap: { AAPL: 62.08 }, now });
+
+    expect(stockDistribution).toHaveLength(0);
+    expect(portfolio.positions.get('AAPL').lots).toHaveLength(0);
+    expect(portfolio.realizedTrades[1].quantity).toBeCloseTo(59.14620966, 8);
+    expect(buildHoldings(transactions)).toEqual({ AAPL: 0 });
+  });
+
   test('buildDashboardStats agrega las métricas del dashboard', () => {
     const { stats } = buildDashboardStats(buildPortfolio(transactions), { priceMap, typeMap, now });
 
