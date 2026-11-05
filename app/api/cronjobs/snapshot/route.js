@@ -3,6 +3,7 @@ import { isCronRequest } from '@/lib/auth/request';
 import { findAllAssets, setAssetsActive } from '@/lib/repository/asset.repository';
 import { findAllTransactions } from '@/lib/repository/transaction.repository';
 import { findAllWatchlistTickers } from '@/lib/repository/watchlist.repository';
+import { findAllOpenLeveragedTickers } from '@/lib/repository/leverage.repository';
 import { findAllUserIds } from '@/lib/repository/user.repository';
 import { createSnapshots } from '@/lib/repository/portfolio.repository';
 import { jsonError } from '@/lib/api/http';
@@ -14,7 +15,7 @@ export const maxDuration = 60;
 
 /**
  * POST /api/cronjobs/snapshot (protegido con CRON_SECRET)
- *  1. Activa/desactiva assets según haya posiciones abiertas o estén en alguna watchlist.
+ *  1. Activa/desactiva assets según haya posiciones abiertas (contado o apalancadas) o estén en alguna watchlist.
  *  2. Guarda un snapshot (valor e invertido) de la cartera de cada usuario, con el mismo
  *     método de valoración que el dashboard.
  */
@@ -27,9 +28,10 @@ export async function POST(request) {
     console.log('=== Cron Job: Snapshot y Sanitización ===');
 
     const now = new Date();
-    const [allTransactions, watchlistTickers, allAssets, userIds] = await Promise.all([
+    const [allTransactions, watchlistTickers, leveragedTickers, allAssets, userIds] = await Promise.all([
       findAllTransactions(),
       findAllWatchlistTickers(),
+      findAllOpenLeveragedTickers(),
       findAllAssets(),
       findAllUserIds(),
     ]);
@@ -41,6 +43,10 @@ export async function POST(request) {
       if (quantity > QUANTITY_EPSILON) tickersToKeepActive.add(ticker.trim());
     }
     for (const ticker of watchlistTickers) {
+      tickersToKeepActive.add(String(ticker).trim());
+    }
+    // Las posiciones apalancadas abiertas necesitan precio para valorar P&L y riesgo de liquidación
+    for (const ticker of leveragedTickers) {
       tickersToKeepActive.add(String(ticker).trim());
     }
 

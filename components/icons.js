@@ -698,3 +698,32 @@ export const LockIcon = ({ className = "h-6 w-6" }) => (
     />
   </svg>
 );
+export const LeverageIcon = ({ className = "h-6 w-6" }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+    fill="none"
+    viewBox="0 0 24 24"
+    stroke="currentColor"
+  >
+    {/* Palanca sobre un fulcro: poco capital mueve mucha exposición */}
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M3 17l18-8"
+    />
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M9 21h6l-3-5-3 5z"
+    />
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M17 5h4v4"
+    />
+  </svg>
+);

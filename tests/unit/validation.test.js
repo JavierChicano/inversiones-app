@@ -3,6 +3,7 @@ import { normalizeTicker, toFiniteNumber, toOptionalText, toValidDate } from '@/
 import { validateNewTransaction, validateTransactionUpdate } from '@/lib/validation/transaction';
 import { validateCurrencyExchangeUpdate, validateNewCurrencyExchange } from '@/lib/validation/currencyExchange';
 import { validateNewStakingPosition, validateUnstake } from '@/lib/validation/staking';
+import { validateCloseLeveragedPosition, validateLeveragedPositionUpdate, validateNewLeveragedPosition } from '@/lib/validation/leverage';
 import { inferAssetType, validateNewWatchlistItem, validateWatchlistUpdate } from '@/lib/validation/watchlist';
 import { validateLogin, validatePasswordChange, validateRegistration } from '@/lib/validation/auth';
 import { parseReportId, validateNewReport, validateReportNotes } from '@/lib/validation/reports';
@@ -222,5 +223,95 @@ describe('reports', () => {
     expect(validateReportNotes({ notes: 42 }).error).toBe('Las notas deben ser texto');
     expect(validateReportNotes({ notes: '   ' }).data).toEqual({ notes: null });
     expect(validateReportNotes({ notes: ' hola ' }).data).toEqual({ notes: 'hola' });
+  });
+});
+
+describe('leverage', () => {
+  const valid = {
+    assetTicker: 'ttwo',
+    assetType: 'Índice',
+    direction: 'long',
+    margin: '1000',
+    leverage: 5,
+    entryPrice: '100',
+    openFee: '5',
+    dailySwap: 2,
+    stopLoss: 90,
+    takeProfit: '',
+    notes: '  swing  ',
+    openedAt: '2026-01-01T10:00:00Z',
+  };
+
+  test('normaliza una apertura válida', () => {
+    const result = validateNewLeveragedPosition(valid);
+    expect(result.ok).toBe(true);
+    expect(result.data).toMatchObject({
+      assetTicker: 'TTWO',
+      assetType: 'INDEX',
+      direction: 'LONG',
+      margin: 1000,
+      leverage: 5,
+      entryPrice: 100,
+      openFee: 5,
+      spread: 0,
+      dailySwap: 2,
+      stopLoss: 90,
+      takeProfit: null,
+      notes: 'swing',
+    });
+    expect(result.data.openedAt.toISOString()).toBe('2026-01-01T10:00:00.000Z');
+    expect(validateNewLeveragedPosition({ ...valid, assetType: 'forex' }).data.assetType).toBe('FIAT');
+    expect(validateNewLeveragedPosition({ ...valid, assetType: undefined }).data.assetType).toBe('STOCK');
+  });
+
+  test('rechaza aperturas inválidas', () => {
+    expect(validateNewLeveragedPosition({}).error).toBe('Faltan campos requeridos');
+    expect(validateNewLeveragedPosition({ ...valid, assetType: 'BOND' }).error).toBe('Tipo de asset inválido');
+    expect(validateNewLeveragedPosition({ ...valid, direction: 'UP' }).error).toMatch(/Dirección/);
+    expect(validateNewLeveragedPosition({ ...valid, margin: 0 }).error).toMatch(/garantía/);
+    expect(validateNewLeveragedPosition({ ...valid, leverage: 0.5 }).error).toMatch(/multiplicador/);
+    expect(validateNewLeveragedPosition({ ...valid, entryPrice: -1 }).error).toMatch(/precio de entrada/);
+    expect(validateNewLeveragedPosition({ ...valid, dailySwap: -1 }).error).toMatch(/comisiones/);
+    expect(validateNewLeveragedPosition({ ...valid, stopLoss: 'x' }).error).toMatch(/numéricos/);
+    expect(validateNewLeveragedPosition({ ...valid, stopLoss: 120 }).error).toMatch(/stop loss debe estar por debajo/);
+    expect(validateNewLeveragedPosition({ ...valid, takeProfit: 80 }).error).toMatch(/take profit debe estar por encima/);
+    expect(validateNewLeveragedPosition({ ...valid, direction: 'SHORT', stopLoss: 90 }).error).toMatch(/por encima/);
+    expect(validateNewLeveragedPosition({ ...valid, direction: 'SHORT', stopLoss: 110, takeProfit: 120 }).error).toMatch(/por debajo/);
+    expect(validateNewLeveragedPosition({ ...valid, openedAt: 'ayer' }).error).toBe('Fecha de apertura inválida');
+  });
+
+  test('cierre: precio obligatorio salvo liquidación', () => {
+    const manual = validateCloseLeveragedPosition({ closePrice: '95', closeFee: '1', closedAt: '2026-01-05', reason: 'take_profit' });
+    expect(manual.ok).toBe(true);
+    expect(manual.data).toMatchObject({ closePrice: 95, closeFee: 1, reason: 'TAKE_PROFIT' });
+    expect(manual.data.closedAt).toBeInstanceOf(Date);
+
+    const liquidation = validateCloseLeveragedPosition({ reason: 'LIQUIDATION' });
+    expect(liquidation.ok).toBe(true);
+    expect(liquidation.data.closePrice).toBeNull();
+    expect(liquidation.data.closedAt).toBeInstanceOf(Date);
+
+    expect(validateCloseLeveragedPosition({}).error).toMatch(/precio de cierre/);
+    expect(validateCloseLeveragedPosition({ closePrice: 0 }).error).toMatch(/precio de cierre/);
+    expect(validateCloseLeveragedPosition({ closePrice: 'x' }).error).toMatch(/numérico/);
+    expect(validateCloseLeveragedPosition({ closePrice: 10, reason: 'OTHER' }).error).toBe('Motivo de cierre inválido');
+    expect(validateCloseLeveragedPosition({ closePrice: 10, closeFee: -1 }).error).toMatch(/comisión de cierre/);
+    expect(validateCloseLeveragedPosition({ closePrice: 10, closedAt: 'x' }).error).toBe('Fecha de cierre inválida');
+  });
+
+  test('actualización parcial coherente con la posición', () => {
+    const position = { direction: 'LONG', entryPrice: 100, stopLoss: 90, takeProfit: null };
+    expect(validateLeveragedPositionUpdate({}).error).toBe('No hay campos para actualizar');
+    expect(validateLeveragedPositionUpdate({ stopLoss: 'x' }).error).toMatch(/stop loss/);
+    expect(validateLeveragedPositionUpdate({ dailySwap: -1 }).error).toMatch(/comisiones/);
+    expect(validateLeveragedPositionUpdate({ takeProfit: 90 }, position).error).toMatch(/por encima/);
+    expect(validateLeveragedPositionUpdate({ stopLoss: 150 }, position).error).toMatch(/por debajo/);
+
+    expect(validateLeveragedPositionUpdate({ openedAt: 'ayer' }).error).toBe('Fecha de apertura inválida');
+
+    const result = validateLeveragedPositionUpdate({ stopLoss: null, takeProfit: '130', dailySwap: '', notes: '', openedAt: '2025-12-20T08:30:00Z' }, position);
+    expect(result.ok).toBe(true);
+    expect(result.data).toMatchObject({ stopLoss: null, takeProfit: 130, dailySwap: 0, notes: null });
+    expect(result.data.openedAt.toISOString()).toBe('2025-12-20T08:30:00.000Z');
   });
 });

@@ -7,6 +7,7 @@ import { generateToken } from '@/lib/auth/jwt';
 import { hashPassword } from '@/lib/auth/password';
 
 const TABLES_IN_DELETE_ORDER = [
+  'leveraged_positions',
   'staking_events',
   'staking_positions',
   'portfolio_reports',

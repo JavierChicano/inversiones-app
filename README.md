@@ -1,6 +1,6 @@
 # Dashboard de Inversiones
 
-Aplicación Next.js (App Router) para registrar operaciones de acciones y criptomonedas, cambios de divisa EUR⇄USD y posiciones de staking, y ver el rendimiento de la cartera (valor actual, P&L realizado, análisis de ventas, progresión histórica, informes).
+Aplicación Next.js (App Router) para registrar operaciones de acciones y criptomonedas, cambios de divisa EUR⇄USD, posiciones de staking y operativa apalancada (CFD / margen), y ver el rendimiento de la cartera (valor actual, P&L realizado, análisis de ventas, progresión histórica, informes).
 
 ## Stack
 
@@ -78,5 +78,6 @@ tests/              Suite de tests (bun test)
 
 - Todas las operaciones se guardan en **USD**; el EUR se obtiene con el tipo `EURUSD` de la tabla `assets`.
 - Las ventas consumen lotes por **menor coste primero** (a igual precio, el más antiguo) y prorratean las comisiones de compra. El mismo motor (`lib/utils/portfolio.js`) alimenta el dashboard, el análisis de posiciones cerradas y los snapshots del cron, así que los tres son coherentes.
+- Las posiciones apalancadas (`lib/utils/leverage.js`) no entran en la cartera al contado: exposición = garantía × multiplicador, cantidad = exposición / precio de entrada, P&L bruto según dirección (largo/corto), comisiones = apertura + cierre + swap × noches, ROI neto sobre la garantía y precio de liquidación al 50 % de la garantía. Una liquidación fija la pérdida bruta en ese 50 %.
 - `exchangeRate` en cambios de divisa es siempre "unidades de la divisa destino por 1 unidad de la divisa origen".
 - El refresco de precios nunca sobrescribe un precio con `0`: si un proveedor falla, se conserva el valor anterior.

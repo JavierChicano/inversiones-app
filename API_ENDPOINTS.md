@@ -16,7 +16,7 @@ Todas las rutas (salvo auth y cron) exigen `Authorization: Bearer <JWT>`. Un tok
 
 | Método | Ruta | Descripción |
 | --- | --- | --- |
-| `GET` | `/api/dashboard/stats` | Estadísticas, distribución por activo (con lotes abiertos), progresión de snapshots y transacciones del rango. Query: `startDate`, `endDate`, `sampleEvery`, `maxSnapshots`, `onlyProgression=1`. |
+| `GET` | `/api/dashboard/stats` | Estadísticas, distribución por activo (con lotes abiertos), progresión de snapshots y transacciones del rango. Incluye `leverage` con el resumen de la operativa apalancada en USD y EUR. Query: `startDate`, `endDate`, `sampleEvery`, `maxSnapshots`, `onlyProgression=1`. |
 | `GET` | `/api/analytics/closed-positions` | Análisis de ventas por ticker (EUR), progresión de ganancias y métricas globales. |
 | `GET` | `/api/profile/contributions` | Disciplina de aportación mensual (desde cambios de divisa; si no hay, desde transacciones). |
 
@@ -52,6 +52,15 @@ Todas las rutas (salvo auth y cron) exigen `Authorization: Bearer <JWT>`. Un tok
 | `GET` | `/api/staking` | Resumen, posiciones activas (con proyección y movimientos), historial y criptos disponibles. |
 | `POST` | `/api/staking` | Body `{ assetTicker, amountStaked, manualApy, lockPeriodDays?, startDate }`. Si ya hay posición activa del ticker, se fusiona (`action: updated`). |
 | `POST` | `/api/staking/[id]` | Retirada. Body `{ amountToUnstake }`. Un cierre total reclama la recompensa como compra a coste 0. Todo en una transacción de BD. |
+
+## Apalancar (CFD / margen)
+
+| Método | Ruta | Descripción |
+| --- | --- | --- |
+| `GET` | `/api/leverage` | Resumen (garantía, exposición, P&L latente y realizado, riesgo), posiciones abiertas valoradas a precio actual (`evaluation`: P&L bruto/neto, swap devengado, precio y proximidad de liquidación) e historial de cerradas. |
+| `POST` | `/api/leverage` | Body `{ assetTicker, assetType?: STOCK|CRYPTO|INDEX|FOREX, direction: LONG|SHORT, margin, leverage, entryPrice, openFee?, spread?, dailySwap?, stopLoss?, takeProfit?, notes?, openedAt }`. Exposición, cantidad y precio de liquidación se calculan en el servidor. Crea el asset si no existe. |
+| `GET` / `PUT` / `DELETE` | `/api/leverage/[id]` | Solo sobre posiciones propias (`404` en caso contrario). `PUT` acepta `openedAt, dailySwap, openFee, notes` (y `stopLoss, takeProfit, spread`, que la UI no usa) y solo en posiciones abiertas. |
+| `POST` | `/api/leverage/[id]/close` | Body `{ closePrice?, closeFee?, closedAt?, reason?: MANUAL|TAKE_PROFIT|STOP_LOSS|LIQUIDATION }`. Calcula días, comisiones totales, P&L bruto/neto y ROI. En `LIQUIDATION` la pérdida bruta se fija en el 50 % de la garantía y el precio de cierre es opcional. |
 
 ## Watchlist
 

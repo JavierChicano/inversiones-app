@@ -16,6 +16,7 @@ import {
   WatchlistIcon,
   CurrencyIcon,
   CoinStackIcon,
+  LeverageIcon,
   EyeIcon,
   EyeOffIcon,
 } from "../icons";
@@ -128,6 +129,12 @@ export default function DashboardNav() {
       name: "Staking Hub",
       href: "/dashboard/staking",
       icon: <CoinStackIcon className="w-5 h-5" />,
+    },
+    {
+      id: "apalancar",
+      name: "Apalancar",
+      href: "/dashboard/apalancar",
+      icon: <LeverageIcon className="w-5 h-5" />,
     },
     {
       id: "analytics",

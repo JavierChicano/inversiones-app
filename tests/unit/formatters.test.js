@@ -3,6 +3,7 @@ import {
   formatCoin,
   formatCurrency,
   formatDate,
+  formatDuration,
   formatHoldingTime,
   formatHoldingTimeLong,
   formatMonthYear,
@@ -112,5 +113,17 @@ describe('formatMonthYear / formatReportPeriod', () => {
     expect(formatReportPeriod('2025-08', '2025-08')).toBe('agosto 2025');
     expect(formatReportPeriod('', '2025-08')).toBe('agosto 2025');
     expect(formatReportPeriod('2025-08', '')).toBe('agosto 2025');
+  });
+});
+
+describe('formatDuration', () => {
+  test('días, horas y minutos', () => {
+    expect(formatDuration('2026-01-01T10:00:00Z', '2026-01-03T15:30:00Z')).toBe('2d 5h 30m');
+    expect(formatDuration('2026-01-01T10:00:00Z', '2026-01-01T10:45:00Z')).toBe('45m');
+    expect(formatDuration('2026-01-01T10:00:00Z', '2026-01-02T10:00:00Z')).toBe('1d');
+    expect(formatDuration('2026-01-01T10:00:00Z', '2026-01-01T13:00:00Z')).toBe('3h');
+    expect(formatDuration('2026-01-01T10:00:00Z', '2026-01-01T10:00:00Z')).toBe('0m');
+    expect(formatDuration('2026-01-02', '2026-01-01')).toBe('0m');
+    expect(formatDuration('x', '2026-01-01')).toBe('-');
   });
 });

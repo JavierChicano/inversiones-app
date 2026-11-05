@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import StatsCard from "./StatsCard";
 import Amount from "../Amount";
 import StockDistributionChart from "./StockDistributionChart";
@@ -13,6 +14,7 @@ import {
   BarChartIcon,
   CreditCardIcon,
   DollarIcon,
+  LeverageIcon,
 } from "../icons";
 import { formatCurrency, formatSignedPercent as formatPercent } from '@/lib/utils/formatters';
 
@@ -159,6 +161,30 @@ export default function DashboardGrid({ data }) {
               icon={<DollarIcon className="w-6 h-6" />}
             />
           </div>
+          {data.leverage && (data.leverage.openCount > 0 || data.leverage.closedCount > 0) && (
+            <Link href="/dashboard/apalancar" className="block">
+              <StatsCard
+                title="Apalancar (CFD)"
+                value={
+                  <span className={data.leverage.unrealizedNetPnl.eur >= 0 ? "text-green-500" : "text-red-500"}>
+                    <Amount>{formatCurrency(data.leverage.unrealizedNetPnl.eur)}</Amount>
+                  </span>
+                }
+                subValue={
+                  <>
+                    Garantía <Amount>{formatCurrency(data.leverage.marginInvested.eur)}</Amount> en{" "}
+                    {data.leverage.openCount} abiertas · realizado{" "}
+                    <Amount>{formatCurrency(data.leverage.realizedNetPnl.eur)}</Amount>
+                    {data.leverage.positionsAtRisk > 0 && (
+                      <span className="text-red-400"> · {data.leverage.positionsAtRisk} cerca de liquidación</span>
+                    )}
+                  </>
+                }
+                color={data.leverage.positionsAtRisk > 0 ? "red" : "purple"}
+                icon={<LeverageIcon className="w-6 h-6" />}
+              />
+            </Link>
+          )}
         </div>
       </div>
     </div>

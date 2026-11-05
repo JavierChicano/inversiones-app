@@ -7,6 +7,8 @@ import { jsonError } from '@/lib/api/http';
 import { toValidDate } from '@/lib/validation/common';
 import { buildDashboardStats, buildPortfolio, sampleSeries, toTime } from '@/lib/utils/portfolio';
 import { DEFAULT_EUR_USD_RATE } from '@/lib/utils/currencyExchangeMetrics';
+import { findLeveragedPositionsByUser } from '@/lib/repository/leverage.repository';
+import { enrichLeveragedPositions, summarizeLeveragedPositions } from '@/lib/utils/leverage';
 
 const FX_TICKER = 'EURUSD';
 
@@ -83,7 +85,11 @@ export async function GET(request) {
       return NextResponse.json({ progression, transactions: transactionsForChart, progressionMeta });
     }
 
-    const tickers = [...new Set(userTransactions.map((tx) => tx.assetTicker)), FX_TICKER];
+    const leveragedRows = await findLeveragedPositionsByUser(auth.userId);
+    const tickers = [
+      ...new Set([...userTransactions.map((tx) => tx.assetTicker), ...leveragedRows.map((row) => row.assetTicker)]),
+      FX_TICKER,
+    ];
     const assetRows = await findAssetsByTickers(tickers);
 
     const priceMap = {};
@@ -101,6 +107,11 @@ export async function GET(request) {
       priceMap,
       typeMap,
     });
+
+    // Resumen de la operativa apalancada (mismo motor que /api/leverage)
+    const assetMap = new Map(assetRows.map((asset) => [asset.ticker, asset]));
+    const { openPositions, closedPositions } = enrichLeveragedPositions(leveragedRows, assetMap);
+    const leverageSummary = summarizeLeveragedPositions(openPositions, closedPositions);
 
     if (progression.length === 0) {
       progression.push({
@@ -129,6 +140,17 @@ export async function GET(request) {
       transactions: transactionsForChart,
       progressionMeta,
       exchangeRate: { eurUsd: eurUsdRate },
+      leverage: {
+        openCount: leverageSummary.openCount,
+        closedCount: leverageSummary.closedCount,
+        marginInvested: { usd: leverageSummary.marginInvested, eur: leverageSummary.marginInvested * usdEurRate },
+        totalExposure: { usd: leverageSummary.totalExposure, eur: leverageSummary.totalExposure * usdEurRate },
+        unrealizedNetPnl: { usd: leverageSummary.unrealizedNetPnl, eur: leverageSummary.unrealizedNetPnl * usdEurRate },
+        realizedNetPnl: { usd: leverageSummary.realizedNetPnl, eur: leverageSummary.realizedNetPnl * usdEurRate },
+        unrealizedRoi: leverageSummary.unrealizedRoi,
+        maxLiquidationProximity: leverageSummary.maxLiquidationProximity,
+        positionsAtRisk: leverageSummary.positionsAtRisk,
+      },
     });
   } catch (error) {
     console.error('Error fetching dashboard stats:', error);
