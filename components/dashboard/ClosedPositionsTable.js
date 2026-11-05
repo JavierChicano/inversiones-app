@@ -4,6 +4,7 @@ import Amount from '../Amount';
 
 import { useState, Fragment } from 'react';
 import { formatCurrency, formatHoldingTime, formatSignedPercent as formatPercent } from '@/lib/utils/formatters';
+import { CLOSE_REASON_LABELS } from '@/lib/utils/leverage';
 
 export default function ClosedPositionsTable({ data }) {
   const [expanded, setExpanded] = useState({});
@@ -24,12 +25,19 @@ export default function ClosedPositionsTable({ data }) {
   const getAssetTypeLabel = (type) => {
     if (type === 'CRYPTO') return 'Crypto';
     if (type === 'FIAT') return 'Forex';
+    if (type === 'INDEX') return 'Índice';
     return 'Stock';
   };
 
   const getAssetColor = (type) => {
     if (type === 'CRYPTO') return 'bg-yellow-600';
     return 'bg-blue-500';
+  };
+
+  const getTradeLabel = (trade) => {
+    if (!trade.leveraged) return null;
+    const direction = trade.direction === 'SHORT' ? 'Corto' : 'Largo';
+    return `${direction} x${trade.leverage}${trade.closeReason ? ` · ${CLOSE_REASON_LABELS[trade.closeReason] || trade.closeReason}` : ''}`;
   };
 
   return (
@@ -53,25 +61,35 @@ export default function ClosedPositionsTable({ data }) {
             </tr>
           </thead>
           <tbody>
-            {data.map((position, index) => (
-              <Fragment key={position.ticker}>
+            {data.map((position) => {
+              const rowKey = position.ticker;
+              const leveragedCount = position.leveragedTrades || 0;
+              return (
+              <Fragment key={rowKey}>
                 <tr
-                  key={position.ticker}
                   className="border-b border-zinc-800/50 hover:bg-zinc-800/30 transition-colors"
                 >
                   <td className="py-4 px-4 relative">
-                    {position.totalTrades > 1 && (
+                    {(position.totalTrades > 1 || leveragedCount > 0) && (
                       <button
-                        onClick={() => toggleExpanded(position.ticker)}
+                        onClick={() => toggleExpanded(rowKey)}
                         className="absolute left-1 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white transition-colors"
-                        aria-label={expanded[position.ticker] ? 'Collapse' : 'Expand'}
+                        aria-label={expanded[rowKey] ? 'Collapse' : 'Expand'}
                       >
-                        {expanded[position.ticker] ? '▾' : '▸'}
+                        {expanded[rowKey] ? '▾' : '▸'}
                       </button>
                     )}
                     <div className="flex items-center gap-2">
                       <div className={`w-2 h-2 rounded-full ${getAssetColor(position.type)}`} />
                       <span className="text-white font-semibold">{position.ticker}</span>
+                      {leveragedCount > 0 && (
+                        <span
+                          className="text-[10px] font-semibold uppercase tracking-wide text-fuchsia-300/80"
+                          title="Operaciones apalancadas incluidas en los totales (garantía como invertido, P&L neto de comisiones y swap)"
+                        >
+                          {leveragedCount} CFD
+                        </span>
+                      )}
                     </div>
                   </td>
                 <td className="py-4 px-4 text-zinc-400 text-sm">
@@ -128,17 +146,25 @@ export default function ClosedPositionsTable({ data }) {
                 </td>
                 </tr>
 
-                {expanded[position.ticker] && (position.trades || []).length > 0 && (
+                {expanded[rowKey] && (position.trades || []).length > 0 && (
                   (position.trades || []).map((trade, tIndex) => (
-                    <tr key={`${position.ticker}-trade-${tIndex}`} className="bg-zinc-900/40">
+                    <tr key={`${rowKey}-trade-${tIndex}`} className={trade.leveraged ? 'bg-fuchsia-500/5' : 'bg-zinc-900/40'}>
                       <td className="py-2 px-4 pl-12 text-zinc-300 text-sm">
-                        {new Date(trade.date).toLocaleDateString('es-ES', {
-                          day: '2-digit',
-                          month: '2-digit',
-                          year: 'numeric',
-                        })}
+                        <div className="flex items-center gap-2">
+                          <div className={`w-1.5 h-1.5 rounded-full ${trade.leveraged ? 'bg-fuchsia-400' : 'bg-zinc-600'}`} />
+                          {new Date(trade.date).toLocaleDateString('es-ES', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                          })}
+                        </div>
+                        {getTradeLabel(trade) && (
+                          <div className="pl-3.5 text-[11px] text-fuchsia-300/80">{getTradeLabel(trade)}</div>
+                        )}
                       </td>
-                      <td className="py-2 px-4 text-zinc-400 text-sm">{getAssetTypeLabel(position.type)}</td>
+                      <td className={`py-2 px-4 text-sm ${trade.leveraged ? 'text-fuchsia-300' : 'text-zinc-400'}`}>
+                        {trade.leveraged ? 'CFD' : getAssetTypeLabel(position.type)}
+                      </td>
                       <td className="py-2 px-4 text-right text-white text-sm">1</td>
                       <td className="py-2 px-4 text-right text-sm">
                         <span className="text-zinc-300"><Amount>{formatCurrency(trade.invested || 0)}</Amount></span>
@@ -172,7 +198,8 @@ export default function ClosedPositionsTable({ data }) {
                   ))
                 )}
               </Fragment>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>

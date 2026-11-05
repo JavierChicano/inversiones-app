@@ -17,7 +17,7 @@ Todas las rutas (salvo auth y cron) exigen `Authorization: Bearer <JWT>`. Un tok
 | Método | Ruta | Descripción |
 | --- | --- | --- |
 | `GET` | `/api/dashboard/stats` | Estadísticas, distribución por activo (con lotes abiertos), progresión de snapshots y transacciones del rango. Incluye `leverage` con el resumen de la operativa apalancada en USD y EUR. Query: `startDate`, `endDate`, `sampleEvery`, `maxSnapshots`, `onlyProgression=1`. |
-| `GET` | `/api/analytics/closed-positions` | Análisis de ventas por ticker (EUR), progresión de ganancias y métricas globales. |
+| `GET` | `/api/analytics/closed-positions` | Análisis de ventas por ticker (EUR), progresión de ganancias y métricas globales. Los cierres apalancados se funden en la fila de su ticker (garantía como invertido y P&L neto como resultado; cada operación lleva `leveraged: true` y la fila `leveragedTrades`) y las métricas desglosan `metrics.spot` y `metrics.leverage`. |
 | `GET` | `/api/profile/contributions` | Disciplina de aportación mensual (desde cambios de divisa; si no hay, desde transacciones). |
 
 ## Transacciones

@@ -5,21 +5,29 @@ import { findAssetsByTickers } from '@/lib/repository/asset.repository';
 import { jsonError } from '@/lib/api/http';
 import { buildPortfolio, summarizeClosedPositions } from '@/lib/utils/portfolio';
 import { DEFAULT_EUR_USD_RATE } from '@/lib/utils/currencyExchangeMetrics';
+import { findLeveragedPositionsByUser } from '@/lib/repository/leverage.repository';
+import { enrichLeveragedPositions, mergeLeveragedIntoClosedAnalysis } from '@/lib/utils/leverage';
 
 const FX_TICKER = 'EURUSD';
 
 /**
  * GET /api/analytics/closed-positions
- * Análisis de ventas realizadas (lotes "lowest cost first"). Importes por ticker en EUR,
- * métricas globales en USD (con equivalentes en EUR).
+ * Análisis de ventas realizadas (lotes "lowest cost first") y de cierres apalancados (CFD).
+ * Importes por ticker en EUR, métricas globales en USD (con equivalentes en EUR).
  */
 export async function GET(request) {
   try {
     const auth = requireUser(request);
     if (auth.error) return auth.error;
 
-    const transactions = await findAllUserTransactions(auth.userId);
-    const tickers = [...new Set(transactions.map((tx) => tx.assetTicker)), FX_TICKER];
+    const [transactions, leveragedRows] = await Promise.all([
+      findAllUserTransactions(auth.userId),
+      findLeveragedPositionsByUser(auth.userId, { status: 'CLOSED' }),
+    ]);
+    const tickers = [
+      ...new Set([...transactions.map((tx) => tx.assetTicker), ...leveragedRows.map((row) => row.assetTicker)]),
+      FX_TICKER,
+    ];
     const assetRows = await findAssetsByTickers(tickers);
 
     const typeMap = {};
@@ -32,9 +40,15 @@ export async function GET(request) {
     const toEur = (value) => value * usdEurRate;
 
     const portfolio = buildPortfolio(transactions);
-    const { closedPositions: closedPositionsUsd, progression, metrics } = summarizeClosedPositions(portfolio, {
-      typeMap,
-    });
+    const spotAnalysis = summarizeClosedPositions(portfolio, { typeMap });
+
+    // Los cierres apalancados (CFD) entran en el mismo análisis: garantía como invertido, P&L neto como resultado
+    const assetMap = new Map(assetRows.map((asset) => [asset.ticker, asset]));
+    const { closedPositions: closedLeveraged } = enrichLeveragedPositions(leveragedRows, assetMap);
+    const { closedPositions: closedPositionsUsd, progression, metrics } = mergeLeveragedIntoClosedAnalysis(
+      spotAnalysis,
+      closedLeveraged
+    );
 
     const closedPositions = closedPositionsUsd
       .map((position) => ({
@@ -59,6 +73,18 @@ export async function GET(request) {
         ...metrics,
         totalGainLossEur: toEur(metrics.totalGainLoss),
         avgGainPerTradeEur: toEur(metrics.avgGainPerTrade),
+        spot: {
+          ...metrics.spot,
+          totalGainLossEur: toEur(metrics.spot.totalGainLoss),
+          totalInvestedEur: toEur(metrics.spot.totalInvested),
+          avgGainPerTradeEur: toEur(metrics.spot.avgGainPerTrade),
+        },
+        leverage: {
+          ...metrics.leverage,
+          totalGainLossEur: toEur(metrics.leverage.totalGainLoss),
+          totalInvestedEur: toEur(metrics.leverage.totalInvested),
+          avgGainPerTradeEur: toEur(metrics.leverage.avgGainPerTrade),
+        },
       },
       exchangeRate: { eurUsd: eurUsdRate },
     });

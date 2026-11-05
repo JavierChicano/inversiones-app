@@ -3,6 +3,7 @@ import { GET as getLeverage, POST as openPosition } from '@/app/api/leverage/rou
 import { DELETE as deletePosition, GET as getPosition, PUT as updatePosition } from '@/app/api/leverage/[id]/route';
 import { POST as closePosition } from '@/app/api/leverage/[id]/close/route';
 import { GET as dashboardStats } from '@/app/api/dashboard/stats/route';
+import { GET as closedAnalytics } from '@/app/api/analytics/closed-positions/route';
 import { POST as snapshot } from '@/app/api/cronjobs/snapshot/route';
 import { POST as refreshUser } from '@/app/api/assets/refresh-user/route';
 import { createTestUser, query, resetDatabase, seedAssets } from '../helpers/db.js';
@@ -278,5 +279,33 @@ describe('integración con el resto de la app', () => {
     expect(json.updated).toBe(2);
     const [row] = await query("SELECT current_price FROM assets WHERE ticker = 'TTWO'");
     expect(Number(row.current_price)).toBe(115);
+  });
+});
+
+describe('análisis de posiciones cerradas con CFD', () => {
+  test('los cierres apalancados entran en /api/analytics/closed-positions', async () => {
+    const { authHeaders } = await createTestUser();
+    const { json: created } = await open(authHeaders);
+    await call(closePosition, `/api/leverage/${created.positionId}/close`, {
+      method: 'POST',
+      headers: authHeaders,
+      body: { closePrice: 110, closeFee: 3, closedAt: '2026-01-11T12:00:00Z' },
+    }, { id: String(created.positionId) });
+
+    const { status, json } = await call(closedAnalytics, '/api/analytics/closed-positions', { headers: authHeaders });
+    expect(status).toBe(200);
+    expect(json.closedPositions).toHaveLength(1);
+    const [cfd] = json.closedPositions;
+    expect(cfd).toMatchObject({ ticker: 'TTWO', type: 'STOCK', leveragedTrades: 1, totalTrades: 1 });
+    // EURUSD = 1.25 → garantía 1000 USD = 800 EUR, P&L 472 USD = 377,6 EUR
+    expect(cfd.totalInvested).toBeCloseTo(800, 9);
+    expect(cfd.totalGainLoss).toBeCloseTo(377.6, 9);
+    expect(cfd.trades[0]).toMatchObject({ leveraged: true, direction: 'LONG', leverage: 5, closeReason: 'MANUAL', holdingDays: 10 });
+
+    expect(json.metrics).toMatchObject({ totalTrades: 1, totalGainLoss: 472, totalInvested: 1000, winningTrades: 1, totalTickers: 1, avgHoldingDays: 10 });
+    expect(json.metrics.leverage).toMatchObject({ totalTrades: 1, totalGainLoss: 472, liquidations: 0 });
+    expect(json.metrics.leverage.totalGainLossEur).toBeCloseTo(377.6, 9);
+    expect(json.metrics.spot.totalTrades).toBe(0);
+    expect(json.progression).toEqual([expect.objectContaining({ ticker: 'TTWO', gainLoss: 472, cumulativeGain: 472, leveraged: true })]);
   });
 });

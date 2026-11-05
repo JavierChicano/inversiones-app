@@ -11,6 +11,7 @@ import {
   calculateTotalFees,
   enrichLeveragedPositions,
   evaluateOpenPosition,
+  mergeLeveragedIntoClosedAnalysis,
   settleLeveragedPosition,
   summarizeLeveragedPositions,
 } from '@/lib/utils/leverage';
@@ -223,5 +224,64 @@ describe('summarizeLeveragedPositions y enrichLeveragedPositions', () => {
     expect(summary.openCount).toBe(0);
     expect(summary.winRate).toBe(0);
     expect(summary.unrealizedRoi).toBe(0);
+  });
+});
+
+describe('mergeLeveragedIntoClosedAnalysis', () => {
+  const spotAnalysis = {
+    closedPositions: [
+      { ticker: 'AAPL', type: 'STOCK', trades: [{ date: '2026-01-10T00:00:00Z', gainLoss: 195 }], totalGainLoss: 195, totalTrades: 1, buyCount: 2, winningTrades: 1, losingTrades: 0, winRate: 100, avgGainPerTrade: 195, roi: 48.75, totalInvested: 400, totalRevenue: 595, avgHoldingDays: 29 },
+    ],
+    progression: [{ date: '2026-01-10T00:00:00Z', ticker: 'AAPL', gainLoss: 195, cumulativeGain: 195 }],
+    metrics: { totalTrades: 1, totalGainLoss: 195, totalInvested: 400, globalROI: 48.75, avgGainPerTrade: 195, winRate: 100, winningTrades: 1, losingTrades: 0, totalTickers: 1, avgHoldingDays: 29 },
+  };
+  const closedLeveraged = [
+    { assetTicker: 'TTWO', assetType: 'STOCK', direction: 'LONG', leverage: 5, margin: 1000, quantity: 50, netPnl: 472, grossPnl: 500, totalFees: 28, daysHeld: 10, closeReason: 'MANUAL', openedAt: '2026-01-01T10:00:00Z', closedAt: '2026-01-11T12:00:00Z' },
+    { assetTicker: 'TTWO', assetType: 'STOCK', direction: 'SHORT', leverage: 2, margin: 500, quantity: 10, netPnl: -260, grossPnl: -250, totalFees: 10, daysHeld: 2, closeReason: 'LIQUIDATION', openedAt: '2026-01-03T10:00:00Z', closedAt: '2026-01-05T12:00:00Z' },
+  ];
+
+  test('funde los cierres CFD en la fila del ticker con garantía como invertido y P&L neto como resultado', () => {
+    const { closedPositions, progression, metrics } = mergeLeveragedIntoClosedAnalysis(spotAnalysis, closedLeveraged);
+
+    expect(closedPositions.map((p) => p.ticker)).toEqual(['TTWO', 'AAPL']); // ordenado por ganancia
+    const cfd = closedPositions[0];
+    expect(cfd).toMatchObject({ ticker: 'TTWO', type: 'STOCK', leveragedTrades: 2, totalTrades: 2, winningTrades: 1, losingTrades: 1, winRate: 50, totalInvested: 1500, totalGainLoss: 212, totalRevenue: 1712, avgHoldingDays: 6 });
+    expect(cfd.roi).toBeCloseTo((212 / 1500) * 100, 9);
+    expect(cfd.trades[0]).toMatchObject({ date: '2026-01-11T12:00:00Z', invested: 1000, revenue: 1472, gainLoss: 472, holdingDays: 10, leveraged: true, direction: 'LONG', leverage: 5, closeReason: 'MANUAL' });
+    expect(cfd.trades[0].roi).toBeCloseTo(47.2, 9);
+    expect(closedPositions[1]).toMatchObject({ ticker: 'AAPL', leveragedTrades: 0 });
+    expect(closedPositions[1].trades[0].leveraged).toBe(false);
+
+    expect(progression.map((p) => [p.ticker, p.gainLoss, p.cumulativeGain])).toEqual([
+      ['TTWO', -260, -260],
+      ['AAPL', 195, -65],
+      ['TTWO', 472, 407],
+    ]);
+
+    expect(metrics).toMatchObject({ totalTrades: 3, totalGainLoss: 407, totalInvested: 1900, winningTrades: 2, losingTrades: 1, totalTickers: 2, avgHoldingDays: 13 });
+    expect(metrics.globalROI).toBeCloseTo((407 / 1900) * 100, 9);
+    expect(metrics.winRate).toBeCloseTo((2 / 3) * 100, 9);
+    expect(metrics.spot).toEqual({ totalTrades: 1, totalGainLoss: 195, totalInvested: 400, globalROI: 48.75, avgGainPerTrade: 195, winRate: 100, winningTrades: 1, losingTrades: 0, avgHoldingDays: 29 });
+    // Duraciones reales: 10d 2h (14.520 min) y 2d 2h (3.000 min) → media 8.760 min = 6d 2h
+    expect(metrics.leverage).toMatchObject({ totalTrades: 2, totalGainLoss: 212, totalInvested: 1500, avgGainPerTrade: 106, winningTrades: 1, losingTrades: 1, winRate: 50, avgHoldingDays: 6, avgHoldingMinutes: 8760, liquidations: 1 });
+    expect(metrics.leverage.globalROI).toBeCloseTo((212 / 1500) * 100, 9);
+  });
+
+  test('un CFD sobre un ticker ya vendido al contado se suma a su fila', () => {
+    const { closedPositions } = mergeLeveragedIntoClosedAnalysis(spotAnalysis, [{ ...closedLeveraged[0], assetTicker: 'AAPL', closedAt: '2026-02-01T00:00:00Z' }]);
+    expect(closedPositions).toHaveLength(1);
+    const [aapl] = closedPositions;
+    expect(aapl).toMatchObject({ ticker: 'AAPL', type: 'STOCK', buyCount: 2, leveragedTrades: 1, totalTrades: 2, totalGainLoss: 667, totalInvested: 1400, totalRevenue: 2067, winningTrades: 2, losingTrades: 0, winRate: 100 });
+    expect(aapl.avgHoldingDays).toBe(Math.floor((29 + 10) / 2));
+    expect(aapl.avgGainPerTrade).toBeCloseTo(333.5, 9);
+    expect(aapl.trades.map((t) => t.leveraged)).toEqual([true, false]); // más reciente primero
+  });
+
+  test('sin cierres apalancados deja el análisis de contado intacto', () => {
+    const { closedPositions, progression, metrics } = mergeLeveragedIntoClosedAnalysis(spotAnalysis, []);
+    expect(closedPositions).toHaveLength(1);
+    expect(progression).toEqual([{ date: '2026-01-10T00:00:00Z', ticker: 'AAPL', gainLoss: 195, cumulativeGain: 195, leveraged: false }]);
+    expect(metrics).toMatchObject({ totalTrades: 1, totalGainLoss: 195, avgHoldingDays: 29 });
+    expect(metrics.leverage.totalTrades).toBe(0);
   });
 });

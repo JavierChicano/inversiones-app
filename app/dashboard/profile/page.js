@@ -64,7 +64,7 @@ export default function ProfilePage() {
     const loadStats = async () => {
       const cached = getCachedData('dashboard-stats') || getCachedData('profile-stats');
       if (cached) {
-        setStats(cached.stats);
+        setStats({ stats: cached.stats, leverage: cached.leverage });
         setStatsLoading(false);
         return;
       }
@@ -84,7 +84,7 @@ export default function ProfilePage() {
         }
 
         if (!cancelled) {
-          setStats(data.stats);
+          setStats({ stats: data.stats, leverage: data.leverage });
           setCachedData('profile-stats', data);
         }
       } catch (err) {
@@ -217,9 +217,9 @@ export default function ProfilePage() {
 
         <Section
           title="Resumen general"
-          description="Lo que ya has materializado con ventas y lo que tienes latente en posiciones abiertas."
+          description="Lo que ya has materializado con ventas y cierres apalancados, y lo que tienes latente en posiciones abiertas (contado y CFD)."
         >
-          <ProfileSummary stats={stats} loading={statsLoading} error={statsError} />
+          <ProfileSummary stats={stats?.stats} leverage={stats?.leverage} loading={statsLoading} error={statsError} />
         </Section>
 
         <Section

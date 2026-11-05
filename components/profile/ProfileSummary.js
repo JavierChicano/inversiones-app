@@ -1,6 +1,6 @@
 'use client';
 
-import { TrendingUpIcon, CashIcon, ChartIcon } from '@/components/icons';
+import { TrendingUpIcon, CashIcon, ChartIcon, LeverageIcon } from '@/components/icons';
 import { formatCurrency, formatSignedCurrency } from '@/lib/utils/formatters';
 import Amount from '@/components/Amount';
 
@@ -40,13 +40,15 @@ function SkeletonTile() {
 }
 
 /**
- * Resumen general del perfil: resultado neto total, P&L realizado y P&L latente.
- * Recibe el objeto `stats` de /api/dashboard/stats.
+ * Resumen general del perfil: resultado neto total, P&L realizado, P&L latente y P&L apalancado.
+ * Recibe `stats` y `leverage` de /api/dashboard/stats. El contado y los CFD se suman en los
+ * tres primeros indicadores; el cuarto aísla la parte apalancada.
  */
-export default function ProfileSummary({ stats, loading, error }) {
+export default function ProfileSummary({ stats, leverage, loading, error }) {
   if (loading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+        <SkeletonTile />
         <SkeletonTile />
         <SkeletonTile />
         <SkeletonTile />
@@ -70,35 +72,62 @@ export default function ProfileSummary({ stats, loading, error }) {
     );
   }
 
-  const realizedEur = stats.netTotal?.eur ?? 0;
-  const realizedUsd = stats.netTotal?.usd ?? 0;
-  const latentEur = (stats.portfolioTotal?.eur ?? 0) - (stats.invested?.eur ?? 0);
-  const latentUsd = (stats.portfolioTotal?.usd ?? 0) - (stats.invested?.usd ?? 0);
+  const lev = leverage || {};
+  const levRealizedEur = lev.realizedNetPnl?.eur ?? 0;
+  const levRealizedUsd = lev.realizedNetPnl?.usd ?? 0;
+  const levLatentEur = lev.unrealizedNetPnl?.eur ?? 0;
+  const levLatentUsd = lev.unrealizedNetPnl?.usd ?? 0;
+  const levMarginEur = lev.marginInvested?.eur ?? 0;
+  const hasLeverage = (lev.openCount || 0) > 0 || (lev.closedCount || 0) > 0;
+
+  const spotRealizedEur = stats.netTotal?.eur ?? 0;
+  const spotRealizedUsd = stats.netTotal?.usd ?? 0;
+  const spotLatentEur = (stats.portfolioTotal?.eur ?? 0) - (stats.invested?.eur ?? 0);
+  const spotLatentUsd = (stats.portfolioTotal?.usd ?? 0) - (stats.invested?.usd ?? 0);
+
+  const realizedEur = spotRealizedEur + levRealizedEur;
+  const realizedUsd = spotRealizedUsd + levRealizedUsd;
+  const latentEur = spotLatentEur + levLatentEur;
+  const latentUsd = spotLatentUsd + levLatentUsd;
   const totalEur = realizedEur + latentEur;
   const totalUsd = realizedUsd + latentUsd;
-  const investedUsd = stats.invested?.usd ?? 0;
+
+  const investedUsd = (stats.invested?.usd ?? 0) + (lev.marginInvested?.usd ?? 0);
   const latentPercent = investedUsd > 0 ? (latentUsd / investedUsd) * 100 : 0;
+  const investedEur = (stats.invested?.eur ?? 0) + levMarginEur;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+    <div className={`grid grid-cols-1 md:grid-cols-2 gap-3 ${hasLeverage ? 'xl:grid-cols-4' : 'xl:grid-cols-3'}`}>
       <SummaryTile
         title="Resultado neto total"
         value={totalEur}
-        hint={`${formatSignedCurrency(totalUsd, 'USD')} · realizado + latente`}
+        hint={`${formatSignedCurrency(totalUsd, 'USD')} · realizado + latente${hasLeverage ? ' · contado + CFD' : ''}`}
         icon={<TrendingUpIcon className="w-5 h-5" />}
       />
       <SummaryTile
         title="P&L realizado"
         value={realizedEur}
-        hint={`${formatSignedCurrency(realizedUsd, 'USD')} · ${stats.closedPositions || 0} ventas`}
+        hint={
+          hasLeverage
+            ? `${stats.closedPositions || 0} ventas ${formatSignedCurrency(spotRealizedEur)} · ${lev.closedCount || 0} CFD ${formatSignedCurrency(levRealizedEur)}`
+            : `${formatSignedCurrency(realizedUsd, 'USD')} · ${stats.closedPositions || 0} ventas`
+        }
         icon={<CashIcon className="w-5 h-5" />}
       />
       <SummaryTile
         title="P&L latente"
         value={latentEur}
-        hint={`${latentPercent >= 0 ? '+' : ''}${latentPercent.toFixed(2)}% sobre ${formatCurrency(stats.invested?.eur ?? 0)} invertidos`}
+        hint={`${latentPercent >= 0 ? '+' : ''}${latentPercent.toFixed(2)}% sobre ${formatCurrency(investedEur)} ${hasLeverage ? 'invertidos + garantía' : 'invertidos'}`}
         icon={<ChartIcon className="w-5 h-5" />}
       />
+      {hasLeverage && (
+        <SummaryTile
+          title="P&L apalancado (CFD)"
+          value={levRealizedEur + levLatentEur}
+          hint={`Realizado ${formatSignedCurrency(levRealizedEur)} · latente ${formatSignedCurrency(levLatentEur)} · ${lev.openCount || 0} abiertas`}
+          icon={<LeverageIcon className="w-5 h-5" />}
+        />
+      )}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import {
   formatCurrency,
   formatDate,
   formatDuration,
+  formatDurationMinutes,
   formatHoldingTime,
   formatHoldingTimeLong,
   formatMonthYear,
@@ -125,5 +126,16 @@ describe('formatDuration', () => {
     expect(formatDuration('2026-01-01T10:00:00Z', '2026-01-01T10:00:00Z')).toBe('0m');
     expect(formatDuration('2026-01-02', '2026-01-01')).toBe('0m');
     expect(formatDuration('x', '2026-01-01')).toBe('-');
+  });
+});
+
+describe('formatDurationMinutes', () => {
+  test('convierte minutos en días, horas y minutos', () => {
+    expect(formatDurationMinutes(8760)).toBe('6d 2h');
+    expect(formatDurationMinutes(95)).toBe('1h 35m');
+    expect(formatDurationMinutes(45.9)).toBe('45m');
+    expect(formatDurationMinutes(0)).toBe('0m');
+    expect(formatDurationMinutes(-10)).toBe('0m');
+    expect(formatDurationMinutes('x')).toBe('0m');
   });
 });
